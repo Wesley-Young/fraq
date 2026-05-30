@@ -4,9 +4,7 @@ import type { Token } from './tokenizer';
 export class Parameter<T> {
   description?: string;
 
-  constructor(
-    public readonly capturer: Capturer<T>,
-  ) {}
+  constructor(public readonly capturer: Capturer<T>) {}
 
   describe(description: string): this {
     this.description = description;
@@ -35,9 +33,7 @@ export namespace param {
     return new Parameter(capturer.union(...literals));
   }
 
-  export function segment<T extends Exclude<Token, string>['type']>(
-    type: T,
-  ): Parameter<Extract<Token, { type: T }>> {
+  export function segment<T extends Exclude<Token, string>['type']>(type: T): Parameter<Extract<Token, { type: T }>> {
     return new Parameter(capturer.segment(type));
   }
 }

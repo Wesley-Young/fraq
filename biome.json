@@ -57,7 +57,7 @@
       }
     },
     {
-      "includes": ["src/protocol/types.ts"],
+      "includes": ["packages/core/src/protocol/types.ts"],
       "formatter": {
         "enabled": false
       },

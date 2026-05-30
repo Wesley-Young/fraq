@@ -1,0 +1,29 @@
+{
+  "name": "fraq",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Milky Bot framework",
+  "files": [
+    "dist"
+  ],
+  "main": "dist/index.mjs",
+  "typings": "dist/index.d.mts",
+  "scripts": {
+    "build": "tsdown && node scripts/format-dts-comments.mjs && biome format --vcs-enabled=false --write dist/index.d.mts",
+    "test": "tsx --test test/*.test.ts",
+    "prepack": "pnpm build"
+  },
+  "keywords": [],
+  "author": "Wesley F. Young",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Wesley-Young/fraq.git"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "mitt": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

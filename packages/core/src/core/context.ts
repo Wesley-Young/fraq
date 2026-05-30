@@ -116,7 +116,9 @@ export class Context {
       await plugin.apply(this, ...args);
       for (const service of plugin.provides ?? []) {
         if (!this.services.has(service) || providedBeforeApply.has(service)) {
-          throw new Error(`${this.describePlugin(plugin)} declares service ${getServiceName(service)} but did not provide it.`);
+          throw new Error(
+            `${this.describePlugin(plugin)} declares service ${getServiceName(service)} but did not provide it.`,
+          );
         }
       }
     }
@@ -196,7 +198,9 @@ export class Context {
 
     const lines = [...missingRequirements].map(([service, plugins]) => {
       const dependents = plugins.map((plugin) => this.describePlugin(plugin)).join(', ');
-      const reason = pendingProviders.has(service) ? 'blocked by a dependency cycle' : 'no installed plugin provides it';
+      const reason = pendingProviders.has(service)
+        ? 'blocked by a dependency cycle'
+        : 'no installed plugin provides it';
       return `${getServiceName(service)} required by ${dependents} (${reason})`;
     });
 
@@ -205,7 +209,10 @@ export class Context {
 
   private describePlugin(plugin: Plugin<ParameterList>): string {
     const pluginIndex = this.plugins.findIndex((installed) => installed.plugin === plugin);
-    const name = plugin.constructor.name && plugin.constructor.name !== 'Object' ? plugin.constructor.name : `plugin #${pluginIndex + 1}`;
+    const name =
+      plugin.constructor.name && plugin.constructor.name !== 'Object'
+        ? plugin.constructor.name
+        : `plugin #${pluginIndex + 1}`;
     return name;
   }
 
