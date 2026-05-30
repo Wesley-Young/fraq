@@ -2,7 +2,7 @@ import type * as types from './types';
 
 export function msg(
   strings: TemplateStringsArray,
-  ...values: (string | number | boolean | types.OutgoingFaceSegment_ZodInput)[]
+  ...values: (string | number | boolean | types.OutgoingSegment_ZodInput)[]
 ): types.OutgoingSegment_ZodInput[] {
   let buffer = '';
   const segments: types.OutgoingSegment_ZodInput[] = [];
