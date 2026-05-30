@@ -11,7 +11,7 @@
   "scripts": {
     "build": "tsdown && node scripts/format-dts-comments.mjs && biome format --vcs-enabled=false --write dist/index.d.mts",
     "test": "tsx --test test/*.test.ts",
-    "prepare": "pnpm build"
+    "prepack": "pnpm build"
   },
   "keywords": [],
   "author": "Wesley F. Young",
@@ -23,12 +23,12 @@
   "packageManager": "pnpm@11.4.0",
   "devDependencies": {
     "@biomejs/biome": "^2.4.16",
+    "@types/node": "^24.12.4",
     "tsdown": "^0.22.0",
     "tsx": "^4.22.3",
     "typescript": "^6.0.3"
   },
   "dependencies": {
-    "@types/node": "^24.12.4",
     "mitt": "^3.0.1"
   },
   "engines": {
