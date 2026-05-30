@@ -1,5 +1,5 @@
 {
-  "name": "fraq",
+  "name": "@fraqjs/fraq",
   "type": "module",
   "version": "0.1.0",
   "description": "Milky Bot framework",

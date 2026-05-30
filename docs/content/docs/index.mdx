@@ -9,11 +9,11 @@ title: 快速开始
 可以通过任意的包管理器安装 Fraq：
 
 ```bash
-npm install fraq
+npm install @fraqjs/fraq
 # or
-yarn add fraq
+yarn add @fraqjs/fraq
 # or
-pnpm add fraq
+pnpm add @fraqjs/fraq
 ```
 
 Fraq 需要在 Node.js 22+ 环境（或其他的支持 WebSocket API 的服务端 JS 环境）中运行。强烈建议使用 TypeScript 来编写 Fraq 代码，并使用 [tsx](https://www.npmjs.com/package/tsx) 来运行你的项目。
@@ -37,7 +37,7 @@ You said: <任意文本>
 首先，启动你的 Milky 协议端，并确认它监听的地址与端口。然后，在你的项目中创建一个 `index.ts` 文件，并添加以下代码：
 
 ```typescript
-import { Context, param } from '../src';
+import { Context, param } from '@fraqjs/fraq';
 
 const ctx = Context.create({
   connect: {

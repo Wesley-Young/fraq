@@ -34,7 +34,7 @@ import { Accordions, Accordion } from 'fumadocs-ui/components/accordion';
 有没有更简单一些的构造方式呢？答案是有的。Fraq 提供了一个 `msg` 函数来帮助我们更方便地构造消息段数组。我们首先从 Fraq 中引入 `msg` 函数，然后用它来构造上面的消息段数组：
 
 ```typescript
-import { msg } from 'fraq';
+import { msg } from '@fraqjs/fraq';
 
 msg`You said: ${content}`;
 ```
@@ -85,7 +85,7 @@ msg`This is an image: ${{ type: 'image', data: { uri: '...' } }}`;
 `seg` 是 Fraq 中一个专门用来构造消息段的命名空间，它提供了很多方法来构造不同类型的消息段。从 Fraq 中引入 `seg` 后，可以使用下面的方法来构造消息段：
 
 ```typescript
-import { seg } from 'fraq';
+import { seg } from '@fraqjs/fraq';
 
 // { type: 'mention', data: { user_id: 123456789 } }
 seg.mention(123456789);
