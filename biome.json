@@ -57,6 +57,12 @@
       }
     },
     {
+      "includes": ["**/tsconfig*json"],
+      "formatter": {
+        "enabled": false
+      }
+    },
+    {
       "includes": ["packages/core/src/protocol/types.ts"],
       "formatter": {
         "enabled": false
@@ -66,6 +72,27 @@
       },
       "assist": {
         "enabled": false
+      }
+    },
+    {
+      "includes": [
+        "docs/**",
+        "!docs/.next",
+        "!docs/dist",
+        "!docs/build",
+        "!docs/.source"
+      ],
+      "linter": {
+        "domains": {
+          "next": "recommended",
+          "react": "recommended"
+        }
+      }
+    },
+    {
+      "includes": ["docs/**/meta.json"],
+      "formatter": {
+        "expand": "always"
       }
     }
   ]

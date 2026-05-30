@@ -1,0 +1,5 @@
+/llms*.txt
+  Content-Type: text/plain; charset=utf-8
+
+/llms.mdx/*
+  Content-Type: text/markdown; charset=utf-8

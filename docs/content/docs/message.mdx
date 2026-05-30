@@ -1,0 +1,112 @@
+---
+title: 构造消息
+---
+
+import { Accordions, Accordion } from 'fumadocs-ui/components/accordion';
+
+消息（Message）是聊天平台中的重要概念。Milky 协议的消息分为**接收**和**发送**两大类，分别对应机器人从聊天平台接收到的消息和机器人向聊天平台发送的消息。
+
+每条消息由一个或多个**消息段**（Segment）组成，每个消息段包含一个类型标记和若干数据字段。消息段的类型标记决定了它的数据字段是什么样的，以及它在聊天平台上会被渲染成什么样子，典型的消息段如文本（text）消息段和图片（image）消息段。
+
+相关的接口定义可以参考 Milky 官网的以下页面：
+
+- [接收消息 (IncomingMessage)](https://milky.ntqqrev.org/struct/IncomingMessage)
+- [接收消息段 (IncomingSegment)](https://milky.ntqqrev.org/struct/IncomingSegment)
+- [发送消息段 (OutgoingSegment)](https://milky.ntqqrev.org/struct/OutgoingSegment)
+
+从上面的文档我们可以看到，接收的消息包含消息的场景（私聊或群聊）、会话 ID（用户 QQ 号或群号）以及发送者信息等，并且包含消息段的数组；而发送的消息由于是在客户端构造，只需要用一个消息段数组来表示。
+
+## `msg` 函数
+
+从上一节的例子中，我们已经见过了这样一个发送消息段的例子：
+
+```typescript
+[
+  {
+    type: 'text',
+    data: {
+      text: `You said: ${content}`,
+    },
+  },
+];
+```
+
+有没有更简单一些的构造方式呢？答案是有的。Fraq 提供了一个 `msg` 函数来帮助我们更方便地构造消息段数组。我们首先从 Fraq 中引入 `msg` 函数，然后用它来构造上面的消息段数组：
+
+```typescript
+import { msg } from 'fraq';
+
+msg`You said: ${content}`;
+```
+
+那么既然能插入字符串 `content` 了，能不能插入别的消息段呢？你当然可以使用
+
+```typescript
+msg`This is an image: ${{ type: 'image', data: { uri: '...' } }}`;
+```
+
+来构造一条图文混排的消息，它会变成：
+
+```typescript
+[
+  { type: 'text', data: { text: 'This is an image: ' } },
+  { type: 'image', data: { uri: '...' } },
+];
+```
+
+不过上面的写法还是有些啰嗦了，Fraq 还提供了一些更简洁的方法来表示不同类型的消息段。
+
+{/* prettier-ignore */}
+<Accordions>
+  <Accordion title="为什么 msg 后面可以紧跟着一个字符串模板？">
+    这种略显少见的语法叫做**标签模板字符串**（Tagged Template Literal），它是 JavaScript 中的一种特殊的字符串语法。`msg` 函数会接收模板字符串中的文本和插值，并将它们转换成一个消息段数组。在这个例子中，`msg` 函数会将 `You said: ${content}` 转换成一个包含一个文本消息段的数组。
+
+    下面是 `msg` 的函数签名：
+
+    ```typescript
+    function msg(
+      strings: TemplateStringsArray,
+      ...values: (string | number | boolean | types.OutgoingSegment_ZodInput)[]
+    ): OutgoingSegment_ZodInput[];
+    ```
+
+    可以看出，在调用 `msg` 函数时，模板字符串中的文本会被传递给 `strings` 参数，而插值（如 `${content}`）会被传递给 `values` 参数。`msg` 函数会根据这些参数来构造一个消息段数组。
+
+    `msg` 除了接受 `string`、`number` 和 `boolean` 类型的插值外，还可以接受符合 `OutgoingSegment_ZodInput` 类型的对象。前面几种基本类型的插值会直接作为字符串拼接到文本消息段中，而 `OutgoingSegment_ZodInput` 类型的插值则会被直接作为一个消息段插入到结果数组中。当然，如果传入其他类型的插值，编译器会报错。
+
+    你可以访问 [Mozilla 的文档](https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Template_literals)来了解更多关于标签模板字符串的信息。
+
+  </Accordion>
+</Accordions>
+{/* prettier-ignore-end */ }
+
+## `seg` 命名空间
+
+`seg` 是 Fraq 中一个专门用来构造消息段的命名空间，它提供了很多方法来构造不同类型的消息段。从 Fraq 中引入 `seg` 后，可以使用下面的方法来构造消息段：
+
+```typescript
+import { seg } from 'fraq';
+
+// { type: 'mention', data: { user_id: 123456789 } }
+seg.mention(123456789);
+
+// { type: 'mention_all', data: {} }
+seg.mentionAll();
+
+// { type: 'face', data: { face_id: '14' } }
+seg.face(14);
+
+// { type: 'reply', data: { message_seq: 123 } }
+seg.reply(123);
+
+// { type: 'image', data: { uri: 'http://example.com/image.jpg' } }
+seg.image('http://example.com/image.jpg');
+
+// { type: 'record', data: { uri: 'http://example.com/audio.mp3' } }
+seg.record('http://example.com/audio.mp3');
+
+// { type: 'video', data: { uri: 'http://example.com/video.mp4' } }
+seg.video('http://example.com/video.mp4');
+```
+
+上面展示了 `seg` 命名空间中一些常用的方法来构造消息段。你也可以通过访问上面提到的 Milky 文档来了解所有可用的消息段，以及它们的数据字段是什么样的。使用 `seg` 命名空间可以让你的代码更加简洁和易读，同时也减少了构造消息段时可能出现的错误。
