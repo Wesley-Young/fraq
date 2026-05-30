@@ -6,15 +6,22 @@ import type { Event, IncomingMessage } from '../protocol/types';
 import { Router, type Session } from '../routing/router';
 import type { Filter } from './filter';
 import type { ParameterList, Plugin } from './plugin';
+import { getServiceName, type ServiceClass } from './service';
 
 const INITIAL_RECONNECT_DELAY_MS = 1_000;
 const MAX_RECONNECT_DELAY_MS = 30_000;
+
+type InstalledPlugin = {
+  plugin: Plugin<ParameterList>;
+  args: ParameterList;
+};
 
 export class Context {
   readonly router = new Router();
 
   private readonly eventBus = mitt<EventMap>();
-  private readonly plugins: [Plugin<ParameterList>, ParameterList][] = [];
+  private readonly plugins: InstalledPlugin[] = [];
+  private readonly services = new Map<ServiceClass, object>();
   private readonly subContexts: Context[] = [];
 
   private isStarted = false;
@@ -54,7 +61,33 @@ export class Context {
   }
 
   install<T extends ParameterList>(plugin: Plugin<T>, ...args: T): void {
-    this.plugins.push([plugin, args]);
+    this.plugins.push({ plugin: plugin as Plugin<ParameterList>, args });
+  }
+
+  provide<T extends object>(service: ServiceClass<T>, instance: T): void {
+    if (this.services.has(service)) {
+      throw new Error(`Service ${getServiceName(service)} has already been provided in this context.`);
+    }
+    this.services.set(service, instance);
+  }
+
+  resolve<T extends object>(service: ServiceClass<T>): T {
+    const instance = this.tryResolve(service);
+    if (instance === undefined) {
+      throw new Error(`Service ${getServiceName(service)} has not been provided.`);
+    }
+    return instance;
+  }
+
+  tryResolve<T extends object>(service: ServiceClass<T>): T | undefined {
+    if (this.services.has(service)) {
+      return this.services.get(service) as T;
+    }
+    return this.parent?.tryResolve(service);
+  }
+
+  isProvided<T extends object>(service: ServiceClass<T>): boolean {
+    return this.tryResolve(service) !== undefined;
   }
 
   fork(filter?: Filter): Context {
@@ -78,13 +111,102 @@ export class Context {
   }
 
   private async applyPlugins(): Promise<void> {
-    for (const [plugin, args] of this.plugins) {
-      try {
-        await plugin.apply(this, ...args);
-      } catch (error) {
-        console.error('Error applying plugin:', error);
+    for (const { plugin, args } of this.sortPlugins()) {
+      const providedBeforeApply = new Set(this.services.keys());
+      await plugin.apply(this, ...args);
+      for (const service of plugin.provides ?? []) {
+        if (!this.services.has(service) || providedBeforeApply.has(service)) {
+          throw new Error(`${this.describePlugin(plugin)} declares service ${getServiceName(service)} but did not provide it.`);
+        }
       }
     }
+  }
+
+  private sortPlugins(): InstalledPlugin[] {
+    this.validateUniqueProvidedServices();
+
+    const pending = [...this.plugins];
+    const sorted: InstalledPlugin[] = [];
+    const available = new Set<ServiceClass>();
+    for (const service of this.collectAvailableServices()) {
+      available.add(service);
+    }
+
+    while (pending.length > 0) {
+      const nextIndex = pending.findIndex(({ plugin }) => this.areRequirementsAvailable(plugin, available));
+      if (nextIndex === -1) {
+        throw this.createUnresolvablePluginError(pending, available);
+      }
+
+      const [next] = pending.splice(nextIndex, 1);
+      sorted.push(next);
+      for (const service of next.plugin.provides ?? []) {
+        available.add(service);
+      }
+    }
+
+    return sorted;
+  }
+
+  private validateUniqueProvidedServices(): void {
+    const providers = new Map<ServiceClass, Plugin<ParameterList>>();
+    for (const { plugin } of this.plugins) {
+      for (const service of plugin.provides ?? []) {
+        const existingProvider = providers.get(service);
+        if (existingProvider) {
+          throw new Error(
+            `Service ${getServiceName(service)} is declared by multiple plugins: ${this.describePlugin(existingProvider)} and ${this.describePlugin(plugin)}.`,
+          );
+        }
+        providers.set(service, plugin);
+      }
+    }
+  }
+
+  private collectAvailableServices(): ServiceClass[] {
+    const services = [...this.services.keys()];
+    if (this.parent) {
+      services.push(...this.parent.collectAvailableServices());
+    }
+    return services;
+  }
+
+  private areRequirementsAvailable(plugin: Plugin<ParameterList>, available: Set<ServiceClass>): boolean {
+    return (plugin.requires ?? []).every((service) => available.has(service));
+  }
+
+  private createUnresolvablePluginError(pending: InstalledPlugin[], available: Set<ServiceClass>): Error {
+    const missingRequirements = new Map<ServiceClass, Plugin<ParameterList>[]>();
+    const pendingProviders = new Set<ServiceClass>();
+    for (const { plugin } of pending) {
+      for (const service of plugin.provides ?? []) {
+        pendingProviders.add(service);
+      }
+    }
+
+    for (const { plugin } of pending) {
+      for (const service of plugin.requires ?? []) {
+        if (!available.has(service)) {
+          const plugins = missingRequirements.get(service) ?? [];
+          plugins.push(plugin);
+          missingRequirements.set(service, plugins);
+        }
+      }
+    }
+
+    const lines = [...missingRequirements].map(([service, plugins]) => {
+      const dependents = plugins.map((plugin) => this.describePlugin(plugin)).join(', ');
+      const reason = pendingProviders.has(service) ? 'blocked by a dependency cycle' : 'no installed plugin provides it';
+      return `${getServiceName(service)} required by ${dependents} (${reason})`;
+    });
+
+    return new Error(`Unable to resolve plugin service dependencies: ${lines.join('; ')}.`);
+  }
+
+  private describePlugin(plugin: Plugin<ParameterList>): string {
+    const pluginIndex = this.plugins.findIndex((installed) => installed.plugin === plugin);
+    const name = plugin.constructor.name && plugin.constructor.name !== 'Object' ? plugin.constructor.name : `plugin #${pluginIndex + 1}`;
+    return name;
   }
 
   private async connectEventWebSocket(): Promise<void> {

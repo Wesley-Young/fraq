@@ -3,6 +3,7 @@ export type { Filter } from './core/filter';
 export { filter } from './core/filter';
 export type { ParameterList, Plugin } from './core/plugin';
 export { definePlugin } from './core/plugin';
+export type { ServiceClass } from './core/service';
 export type { MilkyClient } from './protocol/client';
 export { createMilkyClient } from './protocol/client';
 export type { ApiEndpoints, EventMap } from './protocol/endpoint';
