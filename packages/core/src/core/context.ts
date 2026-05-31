@@ -132,9 +132,7 @@ export class Context {
       await plugin.apply(this, ...args);
       for (const service of plugin.provides ?? []) {
         if (!this.services.has(service) || providedBeforeApply.has(service)) {
-          throw new Error(
-            `${this.describePlugin(plugin)} declares service ${getServiceName(service)} but did not provide it.`,
-          );
+          throw new Error(`${plugin.name} declares service ${getServiceName(service)} but did not provide it.`);
         }
       }
     }
@@ -148,7 +146,7 @@ export class Context {
         const existingProvider = providers.get(service);
         if (existingProvider) {
           throw new Error(
-            `Service ${getServiceName(service)} is declared by multiple plugins: ${this.describePlugin(existingProvider)} and ${this.describePlugin(plugin)}.`,
+            `Service ${getServiceName(service)} is declared by multiple plugins: ${existingProvider.name} and ${plugin.name}.`,
           );
         }
         providers.set(service, plugin);
@@ -208,7 +206,7 @@ export class Context {
     }
 
     const lines = [...missingRequirements].map(([service, plugins]) => {
-      const dependents = plugins.map((plugin) => this.describePlugin(plugin)).join(', ');
+      const dependents = plugins.map((plugin) => plugin.name).join(', ');
       const reason = pendingProviders.has(service)
         ? 'blocked by a dependency cycle'
         : 'no installed plugin provides it';
@@ -216,15 +214,6 @@ export class Context {
     });
 
     return new Error(`Unable to resolve plugin service dependencies: ${lines.join('; ')}.`);
-  }
-
-  private describePlugin(plugin: Plugin<ParameterList>): string {
-    const pluginIndex = this.plugins.findIndex((installed) => installed.plugin === plugin);
-    const name =
-      plugin.constructor.name && plugin.constructor.name !== 'Object'
-        ? plugin.constructor.name
-        : `plugin #${pluginIndex + 1}`;
-    return name;
   }
 
   private async connectEventWebSocket(): Promise<void> {

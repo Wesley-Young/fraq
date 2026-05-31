@@ -79,6 +79,7 @@ test('sorts plugins by service dependencies', async () => {
   const calls: string[] = [];
 
   const BetaPlugin = definePlugin({
+    name: 'beta',
     requires: [AlphaService],
     provides: [BetaService],
     apply(ctx) {
@@ -87,6 +88,7 @@ test('sorts plugins by service dependencies', async () => {
     },
   });
   const AlphaPlugin = definePlugin({
+    name: 'alpha',
     provides: [AlphaService],
     apply(ctx) {
       calls.push('alpha');
@@ -109,6 +111,7 @@ test('preserves install order when plugins do not depend on each other', async (
 
   ctx.install(
     definePlugin({
+      name: 'first',
       apply() {
         calls.push('first');
       },
@@ -116,6 +119,7 @@ test('preserves install order when plugins do not depend on each other', async (
   );
   ctx.install(
     definePlugin({
+      name: 'second',
       apply() {
         calls.push('second');
       },
@@ -132,6 +136,7 @@ test('rejects startup when a required service is missing', async () => {
 
   ctx.install(
     definePlugin({
+      name: 'requires-alpha',
       requires: [AlphaService],
       apply() {},
     }),
@@ -145,6 +150,7 @@ test('rejects startup when multiple plugins declare the same provided service', 
 
   ctx.install(
     definePlugin({
+      name: 'alpha-provider-a',
       provides: [AlphaService],
       apply(ctx) {
         ctx.provide(AlphaService, new AlphaService());
@@ -153,6 +159,7 @@ test('rejects startup when multiple plugins declare the same provided service', 
   );
   ctx.install(
     definePlugin({
+      name: 'alpha-provider-b',
       provides: [AlphaService],
       apply(ctx) {
         ctx.provide(AlphaService, new AlphaService());
@@ -168,6 +175,7 @@ test('rejects startup when plugin service dependencies form a cycle', async () =
 
   ctx.install(
     definePlugin({
+      name: 'cycle-alpha-provider',
       requires: [BetaService],
       provides: [AlphaService],
       apply(ctx) {
@@ -177,6 +185,7 @@ test('rejects startup when plugin service dependencies form a cycle', async () =
   );
   ctx.install(
     definePlugin({
+      name: 'cycle-beta-provider',
       requires: [AlphaService],
       provides: [BetaService],
       apply(ctx) {
@@ -193,6 +202,7 @@ test('rejects startup when a plugin declares but does not provide a service', as
 
   ctx.install(
     definePlugin({
+      name: 'missing-alpha-provider',
       provides: [AlphaService],
       apply() {},
     }),
@@ -208,6 +218,7 @@ test('does not count inherited services as provided by a child plugin', async ()
   parent.provide(AlphaService, new AlphaService());
   child.install(
     definePlugin({
+      name: 'inherited-alpha-provider',
       provides: [AlphaService],
       apply() {},
     }),
@@ -222,6 +233,7 @@ test('rejects startup when a plugin throws and skips later plugins', async () =>
 
   ctx.install(
     definePlugin({
+      name: 'throwing',
       apply() {
         calls.push('throwing');
         throw new Error('boom');
@@ -230,6 +242,7 @@ test('rejects startup when a plugin throws and skips later plugins', async () =>
   );
   ctx.install(
     definePlugin({
+      name: 'later',
       apply() {
         calls.push('later');
       },
@@ -248,6 +261,7 @@ test('uses services from parent contexts to satisfy plugin dependencies', async 
   parent.provide(AlphaService, alpha);
   child.install(
     definePlugin({
+      name: 'beta-from-parent-alpha',
       requires: [AlphaService],
       provides: [BetaService],
       apply(ctx) {
@@ -269,6 +283,7 @@ test('allows a sub context plugin to override a parent service', async () => {
   parent.provide(AlphaService, parentAlpha);
   child.install(
     definePlugin({
+      name: 'child-alpha-provider',
       provides: [AlphaService],
       apply(ctx) {
         ctx.provide(AlphaService, new AlphaService());
@@ -289,6 +304,7 @@ test('resolves dependencies against services provided before startup', async () 
   ctx.provide(AlphaService, alpha);
   ctx.install(
     definePlugin({
+      name: 'gamma-from-existing-alpha',
       requires: [AlphaService],
       provides: [GammaService],
       apply(ctx) {

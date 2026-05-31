@@ -5,6 +5,7 @@ import type { ServiceClass } from './service';
 export type ParameterList = Array<any>;
 
 export interface Plugin<T extends ParameterList> {
+  name: string;
   requires?: readonly ServiceClass[];
   provides?: readonly ServiceClass[];
   apply(context: Context, ...args: T): void | Promise<void>;

@@ -19,6 +19,7 @@ title: 深入了解 Context
 
 ```typescript
 const PluginA = definePlugin({
+  name: 'plugin-a',
   provides: [AlphaService],
   apply(ctx) {
     ctx.provide(AlphaService, new AlphaService());
@@ -26,6 +27,7 @@ const PluginA = definePlugin({
 });
 
 const PluginB = definePlugin({
+  name: 'plugin-b',
   requires: [AlphaService],
   apply(ctx) {
     const alphaService = ctx.resolve(AlphaService);
@@ -55,6 +57,7 @@ class OmegaService {
 }
 
 const pluginX = definePlugin({
+  name: 'plugin-x',
   provides: [OmegaService],
   apply(ctx, omegaName: string) {
     ctx.provide(OmegaService, new OmegaService(omegaName));
@@ -62,6 +65,7 @@ const pluginX = definePlugin({
 });
 
 const pluginY = definePlugin({
+  name: 'plugin-y',
   requires: [OmegaService],
   apply(ctx) {
     const omegaService = ctx.resolve(OmegaService);

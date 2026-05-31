@@ -7,6 +7,7 @@ const ctx = Context.create({
 });
 
 const EchoPlugin = definePlugin({
+  name: 'echo',
   apply(
     ctx,
     options: {

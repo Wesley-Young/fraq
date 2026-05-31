@@ -12,6 +12,7 @@ title: 开发插件
 import { definePlugin } from '@fraqjs/fraq';
 
 export const EchoPlugin = definePlugin({
+  name: 'echo',
   apply(ctx) {
     ctx.router.command(
       'echo',
@@ -26,7 +27,7 @@ export const EchoPlugin = definePlugin({
 });
 ```
 
-我们可以看到，插件是一个对象，它有一个 `apply` 方法，这个方法会在插件被加载时被调用，并且会传入一个 `Context` 对象作为参数。在 `apply` 方法中，我们可以像之前一样定义指令、事件处理器等。
+我们可以看到，插件是一个对象，它有一个 `name` 字段和一个 `apply` 方法。`name` 用于标识插件，`apply` 会在插件被加载时被调用，并且会传入一个 `Context` 对象作为参数。在 `apply` 方法中，我们可以像之前一样定义指令、事件处理器等。
 
 在安装插件时，只需要调用 `ctx.install` 方法，并传入插件对象即可：
 
@@ -48,6 +49,7 @@ ctx.install(EchoPlugin);
 
 ```typescript
 definePlugin({
+  name: 'echo',
   apply(
     ctx,
     options: {
@@ -83,6 +85,7 @@ ctx.install(EchoPlugin, {
 
 ```typescript
 definePlugin({
+  name: 'example',
   apply(ctx, foo: string, bar: number, baz: boolean) {
     // ...
   },
@@ -110,6 +113,7 @@ class AlphaService {
 
 ```typescript
 const PluginA = definePlugin({
+  name: 'plugin-a',
   provides: [AlphaService],
   apply(ctx) {
     ctx.provide(AlphaService, new AlphaService());
@@ -121,6 +125,7 @@ const PluginA = definePlugin({
 
 ```typescript
 const PluginB = definePlugin({
+  name: 'plugin-b',
   requires: [AlphaService],
   apply(ctx) {
     const alphaService = ctx.resolve(AlphaService);
@@ -139,6 +144,7 @@ const PluginB = definePlugin({
 
 ```typescript
 const PluginC = definePlugin({
+  name: 'plugin-c',
   apply(ctx) {
     if (ctx.isProvided(AlphaService)) {
       // 可以被安全地调用，因为我们已经检查过它是否被提供了
