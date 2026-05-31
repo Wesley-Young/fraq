@@ -8,7 +8,7 @@ export interface Plugin<T extends ParameterList> {
   name: string;
   requires?: readonly ServiceClass[];
   provides?: readonly ServiceClass[];
-  apply(context: Context, ...args: T): void | Promise<void>;
+  apply(ctx: Context, ...args: T): void | Promise<void>;
 }
 
 export function definePlugin<T extends ParameterList>(plugin: Plugin<T>): Plugin<T> {
