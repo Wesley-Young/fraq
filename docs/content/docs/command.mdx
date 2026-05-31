@@ -85,10 +85,10 @@ param.str().describe('要回显的文本内容');
 ```typescript
 ctx.router
   .group('parent')
-  .command('child1', { arg1: param.str() }, async (session, { arg1 }) => {
+  .command('child1', { arg1: param.str() }, (session, { arg1 }) => {
     // Handle child1 command
   })
-  .command('child2', { arg2: param.num() }, async (session, { arg2 }) => {
+  .command('child2', { arg2: param.num() }, (session, { arg2 }) => {
     // Handle child2 command
   });
 ```
@@ -100,21 +100,17 @@ ctx.router
 ```typescript
 const parentGroup = ctx.router.group('parent');
 parentGroup
-  .command('child1', { arg1: param.str() }, async (session, { arg1 }) => {
+  .command('child1', { arg1: param.str() }, (session, { arg1 }) => {
     // Handle child1 command
   })
-  .command('child2', { arg2: param.num() }, async (session, { arg2 }) => {
+  .command('child2', { arg2: param.num() }, (session, { arg2 }) => {
     // Handle child2 command
   });
 
 const subGroup = parentGroup.group('sub');
-subGroup.command(
-  'child3',
-  { arg3: param.greedy() },
-  async (session, { arg3 }) => {
-    // Handle child3 command
-  },
-);
+subGroup.command('child3', { arg3: param.greedy() }, (session, { arg3 }) => {
+  // Handle child3 command
+});
 ```
 
 这个 router 可以接受以下的输入：
@@ -158,19 +154,19 @@ ctx.router
   .group('tp')
   .rawPattern(
     { x: param.num(), y: param.num(), z: param.num() },
-    async (session, { x, y, z }) => {
+    (session, { x, y, z }) => {
       // Handle tp with coordinates only
     },
   )
   .rawPattern(
     { player: param.str(), x: param.num(), y: param.num(), z: param.num() },
-    async (session, { player, x, y, z }) => {
+    (session, { player, x, y, z }) => {
       // Handle tp with player and coordinates
     },
   )
   .rawPattern(
     { player1: param.str(), player2: param.str() },
-    async (session, { player1, player2 }) => {
+    (session, { player1, player2 }) => {
       // Handle tp with player to player
     },
   );
@@ -188,13 +184,13 @@ ctx.router
       .group('test')
       .rawPattern(
         { arg: param.str() },
-        async (session, { arg }) => {
+        (session, { arg }) => {
           // Handle test with string argument
         },
       )
       .rawPattern(
         { arg: param.num() },
-        async (session, { arg }) => {
+        (session, { arg }) => {
           // Handle test with number argument
         },
       );
@@ -224,13 +220,9 @@ const adminRouter = ctx.router.filter(
     session.raw.group_member.role !== 'member',
 );
 
-adminRouter.command(
-  'admincmd',
-  { arg: param.str() },
-  async (session, { arg }) => {
-    // This command can only be triggered by group owner and administrators
-  },
-);
+adminRouter.command('admincmd', { arg: param.str() }, (session, { arg }) => {
+  // This command can only be triggered by group owner and administrators
+});
 ```
 
 在上面的例子中，我们创建了一个新的 Router 实例 `adminRouter`，它只会在用户是群主或管理员时触发指令。我们在 `adminRouter` 上定义了一个指令 `admincmd`，只有满足过滤条件的输入才能触发这个指令。
