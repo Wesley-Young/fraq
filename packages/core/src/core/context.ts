@@ -32,6 +32,7 @@ export class Context {
   readonly logger = new Logger((message) => this.logHandler?.(message), 'context');
 
   private readonly parent?: Context;
+  private readonly filter?: Filter;
   private readonly eventBus = mitt<EventMap>();
   private readonly plugins: InstalledPlugin[] = [];
   private readonly services = new Map<ServiceClass, object>();
@@ -54,13 +55,10 @@ export class Context {
     this.logHandler = options?.logHandler ?? parent?.logHandler;
 
     this.parent = parent;
+    this.filter = filter;
     parent?.eventBus.on('*', (type, event) => {
-      if (filter) {
-        const predicate = filter[type];
-        // @ts-expect-error
-        if (predicate && !predicate(event)) {
-          return;
-        }
+      if (!this.acceptsParentEvent(type, event)) {
+        return;
       }
       this.eventBus.emit(type, event);
     });
@@ -131,6 +129,14 @@ export class Context {
     if (!this.parent) {
       void this.connectEventWebSocket();
     }
+  }
+
+  private acceptsParentEvent<K extends keyof EventMap>(type: K, event: EventMap[K]): boolean {
+    if (!this.filter) {
+      return true;
+    }
+    const predicate = this.filter[type];
+    return predicate?.(event) === true;
   }
 
   private async applyPlugins(): Promise<void> {
