@@ -220,16 +220,23 @@ ctx.router
 ```typescript
 const adminRouter = ctx.router.filter(
   (session) =>
-    session.raw.message_scene === 'group' && session.raw.group_member.role !== 'member',
+    session.raw.message_scene === 'group' &&
+    session.raw.group_member.role !== 'member',
 );
 
-adminRouter.command('admincmd', { arg: param.str() }, async (session, { arg }) => {
-  // This command can only be triggered by group owner and administrators
-});
+adminRouter.command(
+  'admincmd',
+  { arg: param.str() },
+  async (session, { arg }) => {
+    // This command can only be triggered by group owner and administrators
+  },
+);
 ```
 
 在上面的例子中，我们创建了一个新的 Router 实例 `adminRouter`，它只会在用户是群主或管理员时触发指令。我们在 `adminRouter` 上定义了一个指令 `admincmd`，只有满足过滤条件的输入才能触发这个指令。
 
+{/* prettier-ignore */}
 <Callout>
   对于插件开发者，非必要情况下不应该主动调用 `ctx.router.filter` 来控制命令的触发权限，因为这会导致指令的可见性和触发条件不能被插件部署方所预期。更好的做法是将过滤命令的任务交给插件部署方，由插件部署方使用 `ctx.fork` 来创建新的 `Context` 实例，并在新的实例上安装插件来实现指令的权限控制。
 </Callout>
+{/* prettier-ignore-end */}
