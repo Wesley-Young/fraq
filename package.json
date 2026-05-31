@@ -1,6 +1,8 @@
 {
   "type": "module",
-  "scripts": {},
+  "scripts": {
+    "docs:dev": "pnpm --filter fraq-docs dev"
+  },
   "license": "MIT",
   "packageManager": "pnpm@11.5.0",
   "devDependencies": {
