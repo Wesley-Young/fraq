@@ -1,7 +1,7 @@
 {
   "name": "@fraqjs/fraq",
   "type": "module",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Milky Bot framework",
   "files": [
     "dist"
@@ -19,6 +19,7 @@
     "type": "git",
     "url": "git+https://github.com/Wesley-Young/fraq.git"
   },
+  "homepage": "https://fraq.ntqqrev.org/",
   "license": "MIT",
   "dependencies": {
     "mitt": "^3.0.1"
