@@ -2,7 +2,7 @@
   "type": "module",
   "scripts": {},
   "license": "MIT",
-  "packageManager": "pnpm@11.4.0",
+  "packageManager": "pnpm@11.5.0",
   "devDependencies": {
     "@biomejs/biome": "^2.4.16",
     "@types/node": "^24.12.4",
