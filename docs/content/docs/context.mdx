@@ -1,0 +1,156 @@
+---
+title: 深入了解 Context
+---
+
+在此前的例子中，我们已经了解了 `Context` 的许多用法：
+
+- `ctx.router` 是一个 `Router` 实例，我们可以在上面定义指令、进行模式匹配等。
+- `ctx.on` 用于监听事件，例如 `message_receive`、`message_recall` 等。
+- `ctx.client` 是一个 `MilkyClient` 实例，我们可以通过来调用 Milky 的 API。
+- `ctx.install` 用于安装插件。
+- `ctx.provide` 和 `ctx.resolve` 用于提供和解析服务。
+- `ctx.start` 用于启动机器人。
+
+正如一开始所提到的，`Context` 是 Fraq 的核心类，代表了一个机器人实例。它包含了机器人的配置、状态、路由等信息。我们通过调用 `ctx` 的各种方法来 “组装” 这个机器人，例如定义指令、安装插件、提供服务等。最后，我们调用 `ctx.start()` 来启动这个机器人，使其开始监听用户输入并响应。
+
+## 继承与隔离
+
+我们可以通过 `ctx.fork` 来创建一个继承当前 `ctx` 的新 `Context` 实例。这个新实例会继承父 `Context` 的配置、路由、插件等信息，但在新创建出的这个 `Context` 上进行配置、路由以及安装插件等操作不会影响到父 `Context`。我们结合上一节的依赖注入来看看这个特性：
+
+```typescript
+const PluginA = definePlugin({
+  provides: [AlphaService],
+  apply(ctx) {
+    ctx.provide(AlphaService, new AlphaService());
+  },
+});
+
+const PluginB = definePlugin({
+  requires: [AlphaService],
+  apply(ctx) {
+    const alphaService = ctx.resolve(AlphaService);
+    console.log(alphaService.alpha());
+  },
+});
+
+const fork1 = ctx.fork();
+fork1.install(PluginA);
+
+const fork2 = ctx.fork();
+fork2.install(PluginB);
+
+ctx.start();
+```
+
+这段代码会**抛出错误**，因为 `PluginB` 依赖了 `AlphaService`，但是 `AlphaService` 是在 `fork1` 上提供的，而 `fork2` 无法访问 `fork1` 上提供的服务。
+
+乍一看，这个特性似乎限制了我们在不同的 `Context` 之间共享服务，但实际上它提供了更大的灵活性。我们看下面一个例子：
+
+```typescript
+class OmegaService {
+  constructor(public name: string) {}
+  omega() {
+    return `omega ${this.name}`;
+  }
+}
+
+const pluginX = definePlugin({
+  provides: [OmegaService],
+  apply(ctx, omegaName: string) {
+    ctx.provide(OmegaService, new OmegaService(omegaName));
+  },
+});
+
+const pluginY = definePlugin({
+  requires: [OmegaService],
+  apply(ctx) {
+    const omegaService = ctx.resolve(OmegaService);
+    console.log(omegaService.omega());
+  },
+});
+
+const fork1 = ctx.fork();
+fork1.install(pluginX, 'fork one');
+fork1.install(pluginY);
+
+const fork2 = ctx.fork();
+fork2.install(pluginX, 'fork two');
+fork2.install(pluginY);
+
+ctx.start();
+```
+
+在这个例子中，我们在两个不同的 fork 上提供了不同配置的 `OmegaService`，并且在同一个 fork 上安装了依赖于 `OmegaService` 的 `pluginY`。当我们运行这段代码时，输出将会是：
+
+```
+omega fork one
+omega fork two
+```
+
+此外，在父 `Context` 上提供的服务是可以被所有子 `Context` 访问的，并且如果在新的 `Context` 上提供了一个与父 `Context` 上同类型的服务，那么在这个新的 `Context` 上解析这个服务时会优先返回新的服务实例，而不是父 `Context` 上的服务实例。我们仍然以上面的 `OmegaService` 为例：
+
+```typescript
+ctx.install(pluginX, 'parent context');
+const fork1 = ctx.fork();
+fork1.install(pluginX, 'fork one');
+fork1.install(pluginY);
+ctx.start();
+```
+
+这段代码的输出将会是 `omega fork one`，而不是 `omega parent context`，因为在 `fork1` 上提供了一个新的 `OmegaService` 实例，它会覆盖掉父 `Context` 上的实例。
+
+总之，`Context` 的继承与隔离特性使得我们可以在不同的 `Context` 上提供不同配置的服务，并且保证了这些服务之间不会互相干扰。这对于构建复杂的机器人应用非常有用。
+
+## 事件过滤
+
+`ctx.fork` 支持传入一个 `Filter` 对象来过滤事件，例如：
+
+```typescript
+ctx.fork({
+  message_receive: ({ data }) =>
+    data.message_scene === 'group' && data.peer_id === 123456,
+  message_recall: ({ data }) =>
+    data.message_scene === 'group' && data.peer_id === 123456,
+});
+```
+
+在这个例子中，我们创建了一个新的 `Context`，并且只让它监听来自群聊 `123456` 的消息接收和消息撤回事件。`Filter` 对象的每个属性都是一个函数，这些函数会在对应事件发生时被调用，只有当函数返回 `true` 时，事件才会被传递给这个新的 `Context`。而对于没有在 `Filter` 对象中指定过滤函数的事件，则默认会被拦截，不会传递给这个新的 `Context`。
+
+Fraq 提供了一个 `filter` 命名空间来提供一些预设的过滤函数，例如：
+
+```typescript
+import { filter } from '@fraqjs/fraq';
+
+const filter1 = filter.group([123456, 654321]);
+// 监听来自群聊 123456 和 654321 的事件，包括：
+// - message_receive
+// - message_recall
+// - group_join_request
+// - ...
+// 等所有与消息和群聊相关的事件。
+
+const filter2 = filter.friend([10001, 10002]);
+// 监听来自好友 10001 和 10002 的事件，包括：
+// - message_receive
+// - message_recall
+// - friend_nudge
+// - ...
+// 等所有与消息和好友相关的事件。
+
+const filter3 = filter.or(filter.group([123456]), filter.friend([10001]));
+// 监听来自群聊 123456 和好友 10001 的事件。
+
+const filter4 = filter.and(
+  filter.group([123456]),
+  filter.admin(),
+);
+// 监听来自群聊 123456 的管理员的消息事件。
+```
+
+随后，就可以将这些过滤器传入 `ctx.fork` 来创建新的 `Context`，例如：
+
+```typescript
+ctx.fork(filter1).install(pluginA); // pluginA 只会监听来自群聊 123456 和 654321 的事件
+ctx.fork(filter4).install(pluginB); // pluginB 只会监听来自群聊 123456 的管理员的消息事件
+ctx.start();
+```

@@ -5,6 +5,7 @@
     "message",
     "command",
     "protocol",
-    "plugin"
+    "plugin",
+    "context"
   ]
 }
