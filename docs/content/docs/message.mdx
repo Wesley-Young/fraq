@@ -66,8 +66,8 @@ msg`This is an image: ${{ type: 'image', data: { uri: '...' } }}`;
     ```typescript
     function msg(
       strings: TemplateStringsArray,
-      ...values: (string | number | boolean | types.OutgoingSegment_ZodInput)[]
-    ): OutgoingSegment_ZodInput[];
+      ...values: (string | number | boolean | milky.OutgoingSegment_ZodInput)[]
+    ): milky.OutgoingSegment_ZodInput[];
     ```
 
     可以看出，在调用 `msg` 函数时，模板字符串中的文本会被传递给 `strings` 参数，而插值（如 `${content}`）会被传递给 `values` 参数。`msg` 函数会根据这些参数来构造一个消息段数组。
