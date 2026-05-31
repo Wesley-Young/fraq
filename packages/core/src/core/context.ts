@@ -125,7 +125,19 @@ export class Context {
   }
 
   private sortPlugins(): InstalledPlugin[] {
-    this.validateUniqueProvidedServices();
+    // validate that no service is provided by multiple plugins
+    const providers = new Map<ServiceClass, Plugin<ParameterList>>();
+    for (const { plugin } of this.plugins) {
+      for (const service of plugin.provides ?? []) {
+        const existingProvider = providers.get(service);
+        if (existingProvider) {
+          throw new Error(
+            `Service ${getServiceName(service)} is declared by multiple plugins: ${this.describePlugin(existingProvider)} and ${this.describePlugin(plugin)}.`,
+          );
+        }
+        providers.set(service, plugin);
+      }
+    }
 
     const pending = [...this.plugins];
     const sorted: InstalledPlugin[] = [];
@@ -135,7 +147,9 @@ export class Context {
     }
 
     while (pending.length > 0) {
-      const nextIndex = pending.findIndex(({ plugin }) => this.areRequirementsAvailable(plugin, available));
+      const nextIndex = pending.findIndex(({ plugin }) =>
+        (plugin.requires ?? []).every((service) => available.has(service)),
+      );
       if (nextIndex === -1) {
         throw this.createUnresolvablePluginError(pending, available);
       }
@@ -150,31 +164,12 @@ export class Context {
     return sorted;
   }
 
-  private validateUniqueProvidedServices(): void {
-    const providers = new Map<ServiceClass, Plugin<ParameterList>>();
-    for (const { plugin } of this.plugins) {
-      for (const service of plugin.provides ?? []) {
-        const existingProvider = providers.get(service);
-        if (existingProvider) {
-          throw new Error(
-            `Service ${getServiceName(service)} is declared by multiple plugins: ${this.describePlugin(existingProvider)} and ${this.describePlugin(plugin)}.`,
-          );
-        }
-        providers.set(service, plugin);
-      }
-    }
-  }
-
   private collectAvailableServices(): ServiceClass[] {
     const services = [...this.services.keys()];
     if (this.parent) {
       services.push(...this.parent.collectAvailableServices());
     }
     return services;
-  }
-
-  private areRequirementsAvailable(plugin: Plugin<ParameterList>, available: Set<ServiceClass>): boolean {
-    return (plugin.requires ?? []).every((service) => available.has(service));
   }
 
   private createUnresolvablePluginError(pending: InstalledPlugin[], available: Set<ServiceClass>): Error {
@@ -220,7 +215,17 @@ export class Context {
     let reconnectDelay = INITIAL_RECONNECT_DELAY_MS;
     while (this.isStarted) {
       try {
-        const ws = await this.client.openEventWebSocket((event) => this.handleWebSocketMessage(event));
+        const ws = await this.client.openEventWebSocket((event) => {
+          try {
+            if (typeof event.data !== 'string') {
+              throw new Error(`Expected text frame, got ${typeof event.data}`);
+            }
+            const payload = JSON.parse(event.data) as Event;
+            this.eventBus.emit(payload.event_type, payload);
+          } catch (error) {
+            console.error('Error handling WebSocket event:', error);
+          }
+        });
         reconnectDelay = INITIAL_RECONNECT_DELAY_MS;
         await new Promise<void>((resolve) => {
           ws.addEventListener('close', () => resolve(), { once: true });
@@ -228,25 +233,9 @@ export class Context {
       } catch (error) {
         console.error('Error connecting event WebSocket:', error);
       }
-      await this.delay(reconnectDelay);
+      await new Promise((resolve) => setTimeout(resolve, reconnectDelay));
       reconnectDelay = Math.min(reconnectDelay * 2, MAX_RECONNECT_DELAY_MS);
     }
-  }
-
-  private handleWebSocketMessage(event: MessageEvent): void {
-    try {
-      if (typeof event.data !== 'string') {
-        throw new Error(`Expected text frame, got ${typeof event.data}`);
-      }
-      const payload = JSON.parse(event.data) as Event;
-      this.eventBus.emit(payload.event_type, payload);
-    } catch (error) {
-      console.error('Error handling WebSocket event:', error);
-    }
-  }
-
-  private delay(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   private createSession(message: IncomingMessage): Session {
