@@ -42,7 +42,7 @@ export namespace filter {
     return result;
   }
 
-  export function friend(uinList: number[]): Filter {
+  export function friend(...uinList: number[]): Filter {
     const uinSet = new Set(uinList);
     return {
       message_receive: ({ data }) => data.message_scene === 'friend' && uinSet.has(data.peer_id),
@@ -54,7 +54,7 @@ export namespace filter {
     };
   }
 
-  export function group(uinList: number[]): Filter {
+  export function group(...uinList: number[]): Filter {
     const uinSet = new Set(uinList);
     return {
       message_receive: ({ data }) => data.message_scene === 'group' && uinSet.has(data.peer_id),
