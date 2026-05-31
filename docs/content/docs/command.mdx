@@ -219,11 +219,11 @@ ctx.router
 
 ```typescript
 const adminRouter = ctx.router.filter(
-  (ctx) =>
-    ctx.raw.message_scene === 'group' && ctx.raw.group_member.role !== 'member',
+  (session) =>
+    session.raw.message_scene === 'group' && session.raw.group_member.role !== 'member',
 );
 
-adminRouter.command('admincmd', { arg: param.str() }, async (ctx, { arg }) => {
+adminRouter.command('admincmd', { arg: param.str() }, async (session, { arg }) => {
   // This command can only be triggered by group owner and administrators
 });
 ```
