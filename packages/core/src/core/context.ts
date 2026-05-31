@@ -5,6 +5,7 @@ import type { EventMap } from '../protocol/endpoint';
 import type { Event, IncomingMessage } from '../protocol/types';
 import { Router, type Session } from '../routing/router';
 import type { Filter } from './filter';
+import { Logger, type LogMessage } from './logging';
 import type { ParameterList, Plugin } from './plugin';
 import { getServiceName, type ServiceClass } from './service';
 
@@ -23,18 +24,22 @@ export interface ContextOptions {
     initialReconnectDelay?: number;
     maxReconnectDelay?: number;
   };
+  logHandler?: (message: LogMessage) => void;
 }
 
 export class Context {
   readonly router = new Router();
+  readonly logger = new Logger((message) => this.logHandler?.(message), 'context');
 
-  private readonly initialReconnectDelayMs: number;
-  private readonly maxReconnectDelayMs: number;
   private readonly parent?: Context;
   private readonly eventBus = mitt<EventMap>();
   private readonly plugins: InstalledPlugin[] = [];
   private readonly services = new Map<ServiceClass, object>();
   private readonly subContexts: Context[] = [];
+
+  private readonly initialReconnectDelayMs: number;
+  private readonly maxReconnectDelayMs: number;
+  private readonly logHandler?: (message: LogMessage) => void;
 
   private isStarted = false;
 
@@ -46,6 +51,8 @@ export class Context {
   ) {
     this.initialReconnectDelayMs = options?.connect.initialReconnectDelay ?? DEFAULT_INITIAL_RECONNECT_DELAY_MS;
     this.maxReconnectDelayMs = options?.connect.maxReconnectDelay ?? DEFAULT_MAX_RECONNECT_DELAY_MS;
+    this.logHandler = options?.logHandler ?? parent?.logHandler;
+
     this.parent = parent;
     parent?.eventBus.on('*', (type, event) => {
       if (filter) {
@@ -129,7 +136,7 @@ export class Context {
   private async applyPlugins(): Promise<void> {
     for (const { plugin, args } of this.sortPlugins()) {
       const providedBeforeApply = new Set(this.services.keys());
-      await plugin.apply(this, ...args);
+      await plugin.apply(this.createProxyContextForPlugin(plugin), ...args);
       for (const service of plugin.provides ?? []) {
         if (!this.services.has(service) || providedBeforeApply.has(service)) {
           throw new Error(`${plugin.name} declares service ${getServiceName(service)} but did not provide it.`);
@@ -214,6 +221,20 @@ export class Context {
     });
 
     return new Error(`Unable to resolve plugin service dependencies: ${lines.join('; ')}.`);
+  }
+
+  private createProxyContextForPlugin(plugin: Plugin<ParameterList>): Context {
+    const proxyLogger = new Logger((message) => this.logHandler?.(message), plugin.name);
+    return new Proxy(this, {
+      get(target, prop) {
+        // proxy a logger for the plugin that prefixes messages with the plugin name
+        if (prop === 'logger') {
+          return proxyLogger;
+        } else {
+          return target[prop as keyof Context];
+        }
+      },
+    });
   }
 
   private async connectEventWebSocket(): Promise<void> {

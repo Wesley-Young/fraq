@@ -1,5 +1,6 @@
 export * from './core/context';
 export * from './core/filter';
+export * from './core/logging';
 export * from './core/plugin';
 export type { ServiceClass } from './core/service';
 export * from './protocol/client';

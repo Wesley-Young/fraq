@@ -1,0 +1,84 @@
+---
+title: 日志系统
+---
+
+在编写机器人时，日志通常是最早会用到、也最容易被忽略的功能之一。我们可能希望知道某个插件是否已经成功加载、某个指令为什么没有触发、或者在调用外部服务失败时记录下具体的错误信息。Fraq 在 `Context` 上提供了一个轻量的 `logger`，用来帮助你把这些信息统一地交给自己的日志系统处理。
+
+## `logger` 对象
+
+`ctx.logger` 提供了四个常用的方法，分别对应不同的日志级别：
+
+```typescript
+ctx.logger.debug('Loaded local cache');
+ctx.logger.info('Bot is ready');
+ctx.logger.warn('Retrying request');
+ctx.logger.error('Failed to send message');
+```
+
+对于 `warn` 和 `error`，你还可以额外传入一个错误对象或其他需要保留的错误详情：
+
+```typescript
+try {
+  await doSomething();
+} catch (error) {
+  ctx.logger.error('Failed to do something', error);
+}
+```
+
+## 配置 `logHandler`
+
+默认情况下，Fraq 不会把日志直接输出到终端。你需要在创建 `Context` 时传入 `logHandler`，Fraq 会把所有日志消息交给这个函数：
+
+```typescript
+import { Context } from '@fraqjs/fraq';
+
+const ctx = Context.create({
+  connect: {
+    baseUrl: '<替换成你的 Milky 协议端地址>',
+  },
+  logHandler(message) {
+    console.log(`[${message.level}] [${message.module}] ${message.message}`);
+  },
+});
+
+ctx.logger.info('Bot is starting');
+
+ctx.start();
+```
+
+传给 `logHandler` 的日志消息是一个普通对象，包含这些字段：
+
+- `level`：日志级别，可能的值有 `debug`、`info`、`warn` 和 `error`。
+- `module`：日志来源的模块名称，默认为 `context`，但在插件里会自动设置为插件名称。
+- `message`：日志内容字符串。
+- `error`：可选字段，如果日志是由一个错误对象触发的，这里会包含这个错误对象。
+- `timestamp`：日志生成的时间戳，通过 `Date.now()` 获取，单位是毫秒。
+
+在这个例子中，我们只是简单地把日志格式化之后输出到了终端。实际项目中，你也可以在 `logHandler` 里把日志发送到文件、数据库、监控系统，或者传递给你已经在使用的日志库来处理。
+
+## 在插件中使用日志
+
+插件中也可以直接使用 `ctx.logger`。插件在 `apply` 方法中拿到的 logger 会自动使用插件的 `name` 作为 `module`，这样多个插件的日志就可以自然地区分开：
+
+```typescript
+import { definePlugin } from '@fraqjs/fraq';
+
+export const EchoPlugin = definePlugin({
+  name: 'echo',
+  apply(ctx) {
+    ctx.logger.info('Echo plugin loaded');
+    ctx.router.command(
+      'echo',
+      {
+        content: param.str(),
+      },
+      (session, { content }) => {
+        ctx.logger.debug(`Received echo command: ${content}`);
+        session.reply(msg`You said: ${content}`);
+      },
+    );
+  },
+});
+```
+
+如果这个插件输出了一条日志，那么 `logHandler` 收到的 `module` 字段会是 `echo`，而不是默认的 `context`。这对于排查插件初始化顺序、依赖注入问题，或者区分不同功能模块的运行状态都很有帮助。
