@@ -1,16 +1,16 @@
-import { param, Router, type Session, type types } from '../src';
+import { type milky, param, Router, type Session } from '../src';
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-function text(text: string): types.IncomingTextSegment {
+function text(text: string): milky.IncomingTextSegment {
   return {
     type: 'text',
     data: { text },
   };
 }
 
-function mention(userId: number, name = 'tester'): types.IncomingMentionSegment {
+function mention(userId: number, name = 'tester'): milky.IncomingMentionSegment {
   return {
     type: 'mention',
     data: {
@@ -20,7 +20,7 @@ function mention(userId: number, name = 'tester'): types.IncomingMentionSegment 
   };
 }
 
-function message(segments: types.IncomingSegment[]): types.IncomingMessage {
+function message(segments: milky.IncomingSegment[]): milky.IncomingMessage {
   return {
     message_scene: 'friend',
     peer_id: 1,
@@ -28,18 +28,18 @@ function message(segments: types.IncomingSegment[]): types.IncomingMessage {
     sender_id: 1,
     time: 1,
     segments,
-    friend: {} as types.FriendEntity,
+    friend: {} as milky.FriendEntity,
   };
 }
 
-function session(raw: types.IncomingMessage): Session {
+function session(raw: milky.IncomingMessage): Session {
   return {
     raw,
     async reply() {},
   };
 }
 
-async function dispatch(router: Router, segments: types.IncomingSegment[]): Promise<boolean> {
+async function dispatch(router: Router, segments: milky.IncomingSegment[]): Promise<boolean> {
   const raw = message(segments);
   return await router.dispatch(session(raw), raw);
 }
@@ -165,7 +165,7 @@ test('rejects empty raw patterns and literal-first raw patterns', () => {
 test('captures non-text segments with segment parameters', async () => {
   const router = new Router();
   const target = mention(42, 'alice');
-  let captured: types.IncomingMentionSegment | undefined;
+  let captured: milky.IncomingMentionSegment | undefined;
 
   router.command('poke', { target: param.segment('mention') }, (_session, params) => {
     captured = params.target;
