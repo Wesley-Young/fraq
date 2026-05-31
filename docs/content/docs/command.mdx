@@ -80,7 +80,7 @@ param.str().describe('要回显的文本内容');
 
 ## 指令组
 
-我们经常会给一个指令定义多个子指令（Subcommand）。在 Fraq 中，可以使用 `ctx.router.group()` 来创建一个指令组，它会返回一个新的 Router 对象，我们可以在其中定义子指令：
+我们经常会给一个指令定义多个子指令（Subcommand）。在 Fraq 中，可以使用 `ctx.router.group` 来创建一个指令组，它会返回一个新的 Router 对象，我们可以在其中定义子指令：
 
 ```typescript
 ctx.router
