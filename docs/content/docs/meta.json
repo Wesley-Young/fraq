@@ -2,6 +2,7 @@
   "pages": [
     "index",
     "message",
-    "command"
+    "command",
+    "plugin"
   ]
 }

@@ -1,0 +1,159 @@
+---
+title: 开发插件
+---
+
+在 Fraq 中，插件（Plugin）是一个可选、可复用的模块化组件，用于封装特定的功能或一组相关的功能。插件可以包含命令、事件处理器等，并且可以被其他插件依赖和调用，只要声明并提供了对应的服务（Service）。下面我们来介绍一下如何定义和使用插件。
+
+## 定义与安装插件
+
+插件通过 `definePlugin` 函数来定义。例如，我们将之前例子中的 Echo 机器人封装成一个插件：
+
+```typescript
+import { definePlugin } from '@fraqjs/fraq';
+
+export const EchoPlugin = definePlugin({
+  apply(ctx) {
+    ctx.router.command(
+      'echo',
+      {
+        content: param.str(),
+      },
+      (session, { content }) => {
+        session.reply(msg`You said: ${content}`);
+      },
+    );
+  },
+});
+```
+
+我们可以看到，插件是一个对象，它有一个 `apply` 方法，这个方法会在插件被加载时被调用，并且会传入一个 `Context` 对象作为参数。在 `apply` 方法中，我们可以像之前一样定义命令、事件处理器等。
+
+在安装插件时，只需要调用 `ctx.install` 方法，并传入插件对象即可：
+
+```typescript
+import { EchoPlugin } from '...';
+
+ctx.install(EchoPlugin);
+```
+
+{/* prettier-ignore */}
+<Callout>
+  即使是在你自己开发的机器人中，也强烈建议将功能模块封装成插件，这样可以更好地组织代码，并且在需要的时候可以方便地复用和共享这些功能模块。
+</Callout>
+{/* prettier-ignore-end */}
+
+## 接受用户配置
+
+有时候，我们希望插件能够接受用户的配置，以便在不同的场景下有不同的表现。通过 `definePlugin` 传入的 `apply` 回调函数可以接受更多的参数作为用户配置。例如，我们想要给机器人的回复消息添加一个用户可配置的表情前缀，可以这样定义插件：
+
+```typescript
+definePlugin({
+  apply(
+    ctx,
+    options: {
+      prefixFaceId: number;
+    },
+  ) {
+    ctx.router.command(
+      'echo',
+      {
+        content: param.str(),
+      },
+      (session, { content }) => {
+        session.reply(
+          msg`${seg.face(options.prefixFaceId)} You said: ${content}`,
+        );
+      },
+    );
+  },
+});
+```
+
+这样，用户在安装插件时需要进行如下配置：
+
+```typescript
+ctx.install(EchoPlugin, {
+  prefixFaceId: 42,
+});
+```
+
+{/* prettier-ignore */}
+<Callout>
+`definePlugin` 并没有限制 `apply` 函数的参数数量，你可以根据需要定义任意的参数来接受用户配置。你甚至可以定义如下的插件：
+
+```typescript
+definePlugin({
+  apply(ctx, foo: string, bar: number, baz: boolean) {
+    // ...
+  },
+});
+```
+
+但建议不要定义过多的参数，以免让用户在安装插件时感到困惑。通常来说，接受一个配置对象作为参数是比较常见和合理的做法。
+
+</Callout>
+{/* prettier-ignore-end */}
+
+## 依赖注入
+
+插件不仅能用来封装功能，还可以用来提供服务（Service）供其他插件依赖和调用。假设我们有一个 `AlphaService`，它提供了一个 `alpha` 方法：
+
+```typescript
+class AlphaService {
+  alpha() {
+    return 'alpha';
+  }
+}
+```
+
+插件可以在定义时声明并通过 `ctx.provide` 方法提供一个服务：
+
+```typescript
+const PluginA = definePlugin({
+  provides: [AlphaService],
+  apply(ctx) {
+    ctx.provide(AlphaService, new AlphaService());
+  },
+});
+```
+
+其他插件可以声明对 `AlphaService` 的依赖，并通过 `ctx.resolve` 方法来获取这个服务的实例：
+
+```typescript
+const PluginB = definePlugin({
+  requires: [AlphaService],
+  apply(ctx) {
+    const alphaService = ctx.resolve(AlphaService);
+    console.log(alphaService.alpha()); // prints 'alpha'
+  },
+});
+```
+
+这里的 `provides` 和 `requires` 很重要，它告诉 Fraq 哪个插件提供了 `AlphaService`，哪个插件依赖了 `AlphaService`，Fraq 会根据这些信息来正确地加载和初始化插件。
+
+例如，如果用户同时安装了 `PluginA` 和 `PluginB`，Fraq 会确保在加载 `PluginB` 之前先加载 `PluginA`，以保证 `AlphaService` 已经被提供了。如果用户没有安装 `PluginA` 就安装了 `PluginB`，Fraq 会抛出一个错误，提示缺少依赖。
+
+## 可选依赖
+
+除此之外，`Context` 还提供了 `tryResolve` 和 `isProvided` 方法，分别用于尝试获取一个服务的实例（如果没有提供则返回 `undefined`）和检查一个服务是否已经被提供了。在这种情况下，用到该服务的插件并不需要声明对它的依赖：
+
+```typescript
+const PluginC = definePlugin({
+  apply(ctx) {
+    if (ctx.isProvided(AlphaService)) {
+      // 可以被安全地调用，因为我们已经检查过它是否被提供了
+      const alphaService = ctx.resolve(AlphaService);
+      console.log(alphaService.alpha());
+    } else {
+      console.log('AlphaService is not provided');
+    }
+    // OR:
+    const alphaService = ctx.tryResolve(AlphaService);
+    if (alphaService) {
+      console.log(alphaService.alpha());
+    } else {
+      console.log('AlphaService is not provided');
+    }
+  },
+});
+```
