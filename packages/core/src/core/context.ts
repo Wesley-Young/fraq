@@ -8,17 +8,29 @@ import type { Filter } from './filter';
 import type { ParameterList, Plugin } from './plugin';
 import { getServiceName, type ServiceClass } from './service';
 
-const INITIAL_RECONNECT_DELAY_MS = 1_000;
-const MAX_RECONNECT_DELAY_MS = 30_000;
+const DEFAULT_INITIAL_RECONNECT_DELAY_MS = 1_000;
+const DEFAULT_MAX_RECONNECT_DELAY_MS = 30_000;
 
 type InstalledPlugin = {
   plugin: Plugin<ParameterList>;
   args: ParameterList;
 };
 
+export interface ContextOptions {
+  connect: {
+    baseUrl: string;
+    accessToken?: string;
+    initialReconnectDelay?: number;
+    maxReconnectDelay?: number;
+  };
+}
+
 export class Context {
   readonly router = new Router();
 
+  private readonly initialReconnectDelayMs: number;
+  private readonly maxReconnectDelayMs: number;
+  private readonly parent?: Context;
   private readonly eventBus = mitt<EventMap>();
   private readonly plugins: InstalledPlugin[] = [];
   private readonly services = new Map<ServiceClass, object>();
@@ -28,9 +40,13 @@ export class Context {
 
   private constructor(
     readonly client: MilkyClient,
-    private readonly parent?: Context,
+    options?: ContextOptions,
+    parent?: Context,
     filter?: Filter,
   ) {
+    this.initialReconnectDelayMs = options?.connect.initialReconnectDelay ?? DEFAULT_INITIAL_RECONNECT_DELAY_MS;
+    this.maxReconnectDelayMs = options?.connect.maxReconnectDelay ?? DEFAULT_MAX_RECONNECT_DELAY_MS;
+    this.parent = parent;
     parent?.eventBus.on('*', (type, event) => {
       if (filter) {
         const predicate = filter[type];
@@ -91,7 +107,7 @@ export class Context {
   }
 
   fork(filter?: Filter): Context {
-    const subContext = new Context(this.client, this, filter);
+    const subContext = new Context(this.client, undefined, this, filter);
     this.subContexts.push(subContext);
     return subContext;
   }
@@ -212,7 +228,7 @@ export class Context {
   }
 
   private async connectEventWebSocket(): Promise<void> {
-    let reconnectDelay = INITIAL_RECONNECT_DELAY_MS;
+    let reconnectDelay = this.initialReconnectDelayMs;
     while (this.isStarted) {
       try {
         const ws = await this.client.openEventWebSocket((event) => {
@@ -226,7 +242,7 @@ export class Context {
             console.error('Error handling WebSocket event:', error);
           }
         });
-        reconnectDelay = INITIAL_RECONNECT_DELAY_MS;
+        reconnectDelay = this.initialReconnectDelayMs;
         await new Promise<void>((resolve) => {
           ws.addEventListener('close', () => resolve(), { once: true });
         });
@@ -234,7 +250,7 @@ export class Context {
         console.error('Error connecting event WebSocket:', error);
       }
       await new Promise((resolve) => setTimeout(resolve, reconnectDelay));
-      reconnectDelay = Math.min(reconnectDelay * 2, MAX_RECONNECT_DELAY_MS);
+      reconnectDelay = Math.min(reconnectDelay * 2, this.maxReconnectDelayMs);
     }
   }
 
@@ -264,13 +280,8 @@ export class Context {
     };
   }
 
-  static create(options: {
-    connect: {
-      baseUrl: string;
-      accessToken?: string;
-    };
-  }): Context {
+  static create(options: ContextOptions): Context {
     const client = createMilkyClient(options.connect.baseUrl, { accessToken: options.connect.accessToken });
-    return new Context(client);
+    return new Context(client, options);
   }
 }
