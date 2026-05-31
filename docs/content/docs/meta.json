@@ -1,8 +1,10 @@
 {
   "pages": [
     "index",
+    "---开发指南---",
     "message",
     "command",
+    "protocol",
     "plugin"
   ]
 }

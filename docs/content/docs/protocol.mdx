@@ -1,0 +1,59 @@
+---
+title: 调用协议功能
+---
+
+## 监听事件
+
+Milky 协议定义了许多种类的[事件](https://milky.ntqqrev.org/struct/Event)，前面讲到的指令实际上是对 `message_receive` 事件的封装。Fraq 响应指令的流程大致如下：
+
+1. 协议端接收到消息；
+2. 协议端向 Fraq 推送一个 `message_receive` 事件，事件对象中包含了消息的来源、发送者、消息内容等；
+3. Fraq 根据事件对象中的信息，匹配到对应的指令处理函数，并调用它；
+4. 指令处理函数通过 `Session` 对象来回复消息。
+
+`message_receive` 事件不止可以被当作指令处理，我们也可以通过 `ctx.on` 直接监听这个事件：
+
+```typescript
+ctx.on('message_receive', ({ data }) => {
+  // do something with the raw event data
+});
+```
+
+一个事件对象包含如下字段：
+
+- `event_type`: 事件类型，例如 `message_receive`、`message_recall` 等。
+- `self_id`: 事件发生的机器人 QQ 号。
+- `time`: 事件发生的时间戳。
+- `data`: 事件数据对象，包含了与事件相关的各种信息。
+
+我们对其中的 `data` 更感兴趣，因此在这里同样使用了解构赋值的语法来直接获取它。拿到了事件数据后，我们就可以根据它的内容来做一些处理了。
+
+当然，我们不止可以监听 `message_receive` 事件，Milky 协议定义了许多其他的事件，例如 `message_recall`（消息撤回）、`group_join_request`（加群请求）等，我们都可以通过 `ctx.on` 来监听它们：
+
+```typescript
+ctx.on('message_recall', ({ data }) => {
+  // someone recalled a message
+});
+
+ctx.on('group_join_request', ({ data }) => {
+  // someone requested to join a group
+});
+```
+
+## 调用 API
+
+在前面的例子中，我们的响应操作仅限于调用 `session.reply` 来回复消息。Milky 协议定义了丰富的 [API](https://milky.ntqqrev.org/api/system)，我们可以通过 `ctx.client` 来调用它们：
+
+```typescript
+// 获取登录信息
+const loginInfo = await ctx.client.get_login_info();
+
+// 给消息添加表情回应
+await ctx.client.send_group_message_reaction({
+  group_id: 123456789,
+  message_seq: 23456,
+  reaction: '42',
+});
+```
+
+通过监听事件和调用 API，我们可以实现更加丰富的机器人功能。
