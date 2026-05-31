@@ -68,7 +68,7 @@ export class Context {
       try {
         this.router.dispatch(this.createSession(message), message);
       } catch (error) {
-        console.error('Error routing command:', error);
+        this.logger.error('Error routing command', error);
       }
     });
   }
@@ -78,7 +78,7 @@ export class Context {
       try {
         await handler(event);
       } catch (error) {
-        console.error(`Error handling event ${type}:`, error);
+        this.logger.error(`Error handling event ${type}`, error);
       }
     });
   }
@@ -249,7 +249,7 @@ export class Context {
             const payload = JSON.parse(event.data) as Event;
             this.eventBus.emit(payload.event_type, payload);
           } catch (error) {
-            console.error('Error handling WebSocket event:', error);
+            this.logger.error('Error handling WebSocket event', error);
           }
         });
         reconnectDelay = this.initialReconnectDelayMs;
@@ -257,7 +257,7 @@ export class Context {
           ws.addEventListener('close', () => resolve(), { once: true });
         });
       } catch (error) {
-        console.error('Error connecting event WebSocket:', error);
+        this.logger.error('Error connecting event WebSocket', error);
       }
       await new Promise((resolve) => setTimeout(resolve, reconnectDelay));
       reconnectDelay = Math.min(reconnectDelay * 2, this.maxReconnectDelayMs);
@@ -284,7 +284,7 @@ export class Context {
               break;
           }
         } catch (error) {
-          console.error('Error sending reply:', error);
+          this.logger.error('Error sending reply', error);
         }
       },
     };
