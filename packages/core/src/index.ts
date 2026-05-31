@@ -8,7 +8,7 @@ export type { MilkyClient } from './protocol/client';
 export { createMilkyClient } from './protocol/client';
 export type { ApiEndpoints, EventMap } from './protocol/endpoint';
 export { msg, seg } from './protocol/segment';
-export type * as types from './protocol/types';
+export type * as milky from './protocol/types';
 export { milkyPackageVersion, milkyVersion } from './protocol/types';
 export { Parameter, param } from './routing/parameter';
 export type { Session } from './routing/router';
