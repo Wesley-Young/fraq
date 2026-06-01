@@ -1,0 +1,210 @@
+---
+title: useMessage
+description: 消息拦截工具函数 —— 等待用户下一条消息
+---
+
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
+在某些场景下，我们需要与用户进行多轮对话，例如确认操作、收集额外信息、或者引导用户完成一个流程。`useMessage` 提供了一个简洁的 Promise 风格 API，让你可以在任意指令中"暂停"并等待用户的下一条消息。
+
+## 快速开始
+
+在使用 `useMessage` 之前，需要先调用 `setupUseMessage` 完成拦截路由的注册：
+
+```typescript
+import { setupUseMessage, useMessage } from '@fraq/core';
+
+// 必须在所有 router.command 之前调用
+setupUseMessage(ctx.router);
+
+ctx.router.command('confirm', {}, async (session) => {
+  session.reply([seg.text('你确定要执行此操作吗？(yes/no)')]);
+
+  const next = await useMessage(session);
+  if (!next) return; // 超时
+
+  const text = next.raw.segments
+    .filter((s) => s.type === 'text')
+    .map((s) => s.data.text)
+    .join('');
+
+  if (text === 'yes') {
+    next.reply([seg.text('操作已执行')]);
+  } else {
+    next.reply([seg.text('已取消')]);
+  }
+});
+```
+
+<Callout type="error">
+  `setupUseMessage` **必须**在所有 `router.command()` 和 `router.rawPattern()`
+  之前调用。如果业务路由先注册，它们会优先匹配用户消息，导致 `useMessage`
+  无法拦截到消息。
+</Callout>
+
+## API 参考
+
+### `setupUseMessage(router)`
+
+初始化拦截路由，将消息拦截器注册到指定的 router 上。
+
+| 参数     | 类型     | 说明                  |
+| -------- | -------- | --------------------- |
+| `router` | `Router` | 通常传入 `ctx.router` |
+
+此函数是幂等的，多次调用不会重复注册。
+
+### `useMessage(session, options?)`
+
+等待同一会话中用户的下一条消息，返回一个 Promise。
+
+| 参数                   | 类型                | 默认值  | 说明                         |
+| ---------------------- | ------------------- | ------- | ---------------------------- |
+| `session`              | `Session`           | —       | 当前消息上下文，用于隔离会话 |
+| `options.signal`       | `AbortSignal`       | —       | 可选，用于提前取消等待       |
+| `options.timeout`      | `number`            | `5000`  | 超时时间（毫秒）             |
+| `options.timeoutError` | `boolean`           | `false` | 超时时是否抛出错误           |
+| `options.timeoutReply` | `OutgoingSegment[]` | —       | 超时后自动回复的消息         |
+
+**返回值**：`Promise<Session | null>`
+
+- 正常情况下 resolve 为用户的下一条消息对应的 `Session`
+- 超时且 `timeoutError` 为 `false` 时 resolve 为 `null`
+- 超时且 `timeoutError` 为 `true` 时 reject `DOMException('TimeoutError')`
+- 被 `AbortSignal` 取消时 reject `DOMException('AbortError')`
+
+### `isWaitingForMessage(raw)`
+
+检查某个会话中是否有正在等待的消息。
+
+| 参数  | 类型              | 说明                             |
+| ----- | ----------------- | -------------------------------- |
+| `raw` | `IncomingMessage` | 当前消息对象（即 `session.raw`） |
+
+**返回值**：`boolean`
+
+## 使用示例
+
+### 基本用法：等待用户输入
+
+```typescript
+import { setupUseMessage, useMessage } from '@fraq/core';
+import { msg } from '@fraq/core/protocol/segment';
+
+setupUseMessage(ctx.router);
+
+ctx.router.command('ask', {}, async (session) => {
+  session.reply(msg`请输入你的名字：`);
+
+  const next = await useMessage(session, { timeout: 30_000 });
+  if (!next) {
+    session.reply(msg`超时了，请重新发起。`);
+    return;
+  }
+
+  const name = next.raw.segments
+    .filter((s) => s.type === 'text')
+    .map((s) => s.data.text)
+    .join('');
+
+  next.reply(msg`你好，${name}！`);
+});
+```
+
+### 带超时和自动回复
+
+```typescript
+const next = await useMessage(session, {
+  timeout: 10_000,
+  timeoutError: false,
+  timeoutReply: [seg.text('你太久没说话了，对话已结束。')],
+});
+
+if (!next) return; // 超时，已自动回复
+```
+
+### 多轮对话循环
+
+```typescript
+import { setupUseMessage, useMessage } from '@fraq/core';
+
+setupUseMessage(ctx.router);
+
+ctx.router.command('chat', {}, async (session) => {
+  const ac = new AbortController();
+  session.reply([seg.text('对话已开始，输入 exit 退出')]);
+
+  while (true) {
+    const next = await useMessage(session, {
+      signal: ac.signal,
+      timeout: 60_000,
+      timeoutError: false,
+      timeoutReply: [seg.text('你太久没说话了，对话结束。')],
+    });
+
+    if (!next) break;
+
+    const text = next.raw.segments
+      .filter((s) => s.type === 'text')
+      .map((s) => s.data.text)
+      .join('');
+
+    if (text === 'exit') {
+      next.reply([seg.text('对话结束')]);
+      break;
+    }
+
+    next.reply([seg.text(`你说的是: ${text}`)]);
+  }
+});
+```
+
+### 使用 AbortSignal 取消
+
+```typescript
+ctx.router.command('cancel-demo', {}, async (session) => {
+  const ac = new AbortController();
+
+  // 5 秒后自动取消
+  setTimeout(() => ac.abort(), 5000);
+
+  try {
+    const next = await useMessage(session, { signal: ac.signal });
+    next?.reply([seg.text('你说了：')]);
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') {
+      session.reply([seg.text('等待已取消')]);
+    }
+  }
+});
+```
+
+## 会话隔离
+
+`useMessage` 以 `sender_id + message_scene + peer_id` 作为隔离 key，这意味着：
+
+- 同一用户在**私聊**中的 `useMessage` 和在**群聊**中的是独立的
+- 同一用户在**不同群聊**中的 `useMessage` 也是独立的
+- 同一会话中的多个 `useMessage` 调用会按 **FIFO 队列**依次消费，不会互相覆盖
+
+## 工作原理
+
+`useMessage` 基于 Fraq 现有的 `filter` + `rawPattern` 机制实现。
+
+`setupUseMessage` 注册的拦截路由结构如下：
+
+```
+router
+  ├─ filter: 检查该会话是否有 pending 的 useMessage 请求
+  │    └─ rawPattern({ _all: catchAll }): 捕获所有 token，resolve 下一个等待中的 Promise
+  ├─ command('chat', ...)        ← 其他业务路由
+  ├─ command('echo', ...)
+  └─ ...
+```
+
+当用户发送消息时：
+
+1. 路由器按注册顺序遍历 entry
+2. 先遇到 `filter`，检查该会话是否有等待中的 `useMessage`
+3. 如果有 → 进入子路由，`catchAll` 捕获所有 token，调用 `resolveNext` 将消息 resolve 给等待中的 Promise
+4. 如果没有 → 跳过 filter，继续匹配后续的业务路由
