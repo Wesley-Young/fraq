@@ -14,24 +14,25 @@
  *
  * 使用前必须调用 setupUseMessage(router) 完成初始化（且必须在所有 router.command 之前）。
  */
-import type { IncomingMessage, OutgoingSegment_ZodInput } from '../protocol/types'
-import type { Router, Session } from '../routing/router'
-import { param } from '../routing/parameter'
-import { msg } from '../protocol/segment.js'
+import type { IncomingMessage, OutgoingSegment_ZodInput } from '../protocol/types';
+import type { Router, Session } from '../routing/router';
+import { param } from '../routing/parameter';
+import { msg } from '../protocol/segment.js';
 
 // ---------- 内部状态 ----------
 
 /** 等待队列：conversationKey → PendingRequest[]（FIFO） */
-const pendingQueues = new Map<string, PendingRequest[]>()
+const pendingQueues = new Map<string, PendingRequest[]>();
 
 /** 拦截路由是否已注册 */
-let interceptorRegistered = false
+let interceptorRegistered = false;
 
 interface PendingRequest {
-  resolve: (session: Session) => void
-  reject: (error: Error) => void
-  timeoutId?: ReturnType<typeof setTimeout>
-  signalAbortHandler?: () => void
+  resolve: (session: Session) => void;
+  reject: (error: Error) => void;
+  timeoutId?: ReturnType<typeof setTimeout>;
+  signalAbortHandler?: () => void;
+  signal?: AbortSignal;
 }
 
 // ---------- 内部工具 ----------
@@ -45,33 +46,40 @@ interface PendingRequest {
  * - 用户 12345 在群 11111    → `12345:group:11111`
  */
 function conversationKey(raw: IncomingMessage): string {
-  return `${raw.sender_id}:${raw.message_scene}:${raw.peer_id}`
+  return `${raw.sender_id}:${raw.message_scene}:${raw.peer_id}`;
 }
 
-/** 从队列中移除请求并清理定时器 */
-function cleanupRequest(queue: PendingRequest[], req: PendingRequest): void {
+/** 从队列中移除请求，清理定时器、AbortSignal 监听器，队列为空时删除映射条目 */
+function cleanupRequest(key: string, queue: PendingRequest[], req: PendingRequest): void {
   if (req.timeoutId != null) {
-    clearTimeout(req.timeoutId)
-    req.timeoutId = undefined
+    clearTimeout(req.timeoutId);
+    req.timeoutId = undefined;
   }
-  const idx = queue.indexOf(req)
+  if (req.signalAbortHandler && req.signal) {
+    req.signal.removeEventListener('abort', req.signalAbortHandler);
+    req.signalAbortHandler = undefined;
+    req.signal = undefined;
+  }
+  const idx = queue.indexOf(req);
   if (idx !== -1) {
-    queue.splice(idx, 1)
+    queue.splice(idx, 1);
+  }
+  if (queue.length === 0) {
+    pendingQueues.delete(key);
   }
 }
 
 /** 消费队列中的下一个请求，返回是否成功 */
 function resolveNext(key: string, session: Session): boolean {
-  const queue = pendingQueues.get(key)
-  if (!queue || queue.length === 0) return false
+  const queue = pendingQueues.get(key);
+  if (!queue || queue.length === 0) return false;
 
-  const req = queue.shift()
-  if (!req) return false
+  const req = queue.shift();
+  if (!req) return false;
 
-  cleanupRequest(queue, req)
-
-  req.resolve(session)
-  return true
+  cleanupRequest(key, queue, req);
+  req.resolve(session);
+  return true;
 }
 
 // ---------- 公开 API ----------
@@ -101,21 +109,21 @@ function resolveNext(key: string, session: Session): boolean {
  */
 export function setupUseMessage(router: Router): void {
   if (interceptorRegistered) {
-    return
+    return;
   }
 
   router
     .filter((session) => {
-      const key = conversationKey(session.raw)
-      const queue = pendingQueues.get(key)
-      return !!(queue && queue.length > 0)
+      const key = conversationKey(session.raw);
+      const queue = pendingQueues.get(key);
+      return !!(queue && queue.length > 0);
     })
     .rawPattern({ _all: param.catchAll() }, async (session) => {
-      const key = conversationKey(session.raw)
-      resolveNext(key, session)
-    })
+      const key = conversationKey(session.raw);
+      resolveNext(key, session);
+    });
 
-  interceptorRegistered = true
+  interceptorRegistered = true;
 }
 
 export interface UseMessageOptions {
@@ -123,24 +131,26 @@ export interface UseMessageOptions {
    * AbortSignal，用于提前取消等待（类似 fetch）。
    * abort 后 Promise 以 DOMException('AbortError') reject。
    */
-  signal?: AbortSignal
+  signal?: AbortSignal;
 
   /**
-   * 超时时间（毫秒）。默认5000毫秒。
+   * 超时时间（毫秒）。
+   *  - 默认5000毫秒。
+   *  - 0或负数表示不启用超时。
    */
-  timeout?: number
+  timeout?: number;
 
   /**
    * 超时时是否抛出错误。
    * - `true`：Promise 以 DOMException('TimeoutError') reject
    * - `false`（默认）：Promise resolve(null)，若设置了 timeoutReply 则自动回复
    */
-  timeoutError?: boolean
+  timeoutError?: boolean;
 
   /**
    * 超时后自动回复的消息内容（仅在 timeoutError 为 false 时生效）。
    */
-  timeoutReply?: OutgoingSegment_ZodInput[]
+  timeoutReply?: null | OutgoingSegment_ZodInput[];
 }
 
 /**
@@ -184,88 +194,70 @@ export interface UseMessageOptions {
  * });
  * ```
  */
-export function useMessage(
-  session: Session,
-  options: UseMessageOptions = {},
-): Promise<Session | null> {
-  const {
-    signal,
-    timeout = 5000,
-    timeoutError = false,
-    timeoutReply = msg`当前对话已超时`,
-  } = options
+export function useMessage(session: Session, options: UseMessageOptions = {}): Promise<Session | null> {
+  const { signal, timeout = 5000, timeoutError = false, timeoutReply } = options;
 
   if (!interceptorRegistered) {
-    throw new Error('useMessage: 尚未初始化，请先调用 setupUseMessage(ctx.router) 完成配置。')
+    throw new Error('useMessage: 尚未初始化，请先调用 setupUseMessage(ctx.router) 完成配置。');
   }
 
   // ---- signal 已经 abort → 立即 reject ----
   if (signal?.aborted) {
-    return Promise.reject(new DOMException('The operation was aborted.', 'AbortError'))
+    return Promise.reject(new DOMException('The operation was aborted.', 'AbortError'));
   }
 
-  const key = conversationKey(session.raw)
+  const key = conversationKey(session.raw);
 
   // ---- 构造 Promise ----
   return new Promise<Session | null>((resolve, reject) => {
-    const req: PendingRequest = { resolve, reject }
+    const req: PendingRequest = { resolve, reject };
 
     // ---- 超时处理 ----
     if (timeout > 0) {
       req.timeoutId = setTimeout(async () => {
-        const queue = pendingQueues.get(key)
-        if (queue) cleanupRequest(queue, req)
+        const queue = pendingQueues.get(key);
+        if (queue) cleanupRequest(key, queue, req);
 
-        // 清理 abort 监听
-        if (req.signalAbortHandler && signal) {
-          signal.removeEventListener('abort', req.signalAbortHandler)
+        // 发送超时回复
+        if (timeoutReply !== null) {
+          try {
+            await session.reply(timeoutReply ?? msg`当前对话已超时`);
+          } catch {
+            // 回复失败静默忽略
+          }
         }
 
         if (timeoutError) {
-          reject(new DOMException(`The operation timed out after ${timeout}ms.`, 'TimeoutError'))
+          reject(new DOMException(`The operation timed out after ${timeout}ms.`, 'TimeoutError'));
         } else {
-          // 发送超时回复
-          if (timeoutReply) {
-            try {
-              await session.reply(timeoutReply)
-            } catch {
-              // 回复失败静默忽略
-            }
-          }
-          resolve(null)
+          resolve(null);
         }
-      }, timeout)
+      }, timeout);
     }
 
     // ---- AbortSignal 监听 ----
     if (signal) {
       req.signalAbortHandler = () => {
-        // 清理超时定时器
-        if (req.timeoutId != null) {
-          clearTimeout(req.timeoutId)
-          req.timeoutId = undefined
-        }
+        const queue = pendingQueues.get(key);
+        if (queue) cleanupRequest(key, queue, req);
 
-        // 从队列移除
-        const queue = pendingQueues.get(key)
-        if (queue) cleanupRequest(queue, req)
+        reject(new DOMException('The operation was aborted.', 'AbortError'));
+      };
 
-        reject(new DOMException('The operation was aborted.', 'AbortError'))
-      }
-
+      req.signal = signal;
       signal.addEventListener('abort', req.signalAbortHandler, {
         once: true,
-      })
+      });
     }
 
     // ---- 入队 ----
-    let queue = pendingQueues.get(key)
+    let queue = pendingQueues.get(key);
     if (!queue) {
-      queue = []
-      pendingQueues.set(key, queue)
+      queue = [];
+      pendingQueues.set(key, queue);
     }
-    queue.push(req)
-  })
+    queue.push(req);
+  });
 }
 
 /**
@@ -274,7 +266,7 @@ export function useMessage(
  * @param raw - 当前消息上下文（session.raw）
  */
 export function isWaitingForMessage(raw: IncomingMessage): boolean {
-  const key = conversationKey(raw)
-  const queue = pendingQueues.get(key)
-  return !!(queue && queue.length > 0)
+  const key = conversationKey(raw);
+  const queue = pendingQueues.get(key);
+  return !!(queue && queue.length > 0);
 }

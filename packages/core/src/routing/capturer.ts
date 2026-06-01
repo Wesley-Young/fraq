@@ -11,7 +11,8 @@ export type TypeInstruction =
   | { type: 'string' }
   | { type: 'greedy' }
   | { type: 'union'; members: string[] }
-  | { type: 'segment'; segmentType: Exclude<Token, string>['type'] };
+  | { type: 'segment'; segmentType: Exclude<Token, string>['type'] }
+  | { type: 'catchAll' };
 
 export namespace capturer {
   export function literal<T extends string>(literal: T): Capturer<T> {
@@ -104,7 +105,7 @@ export namespace capturer {
   }
 
   export const catchAll: Capturer<true> = {
-    typeInstruction: { type: 'string' },
+    typeInstruction: { type: 'catchAll' },
     capture(tokenizer) {
       while (tokenizer.hasNext()) {
         tokenizer.next()

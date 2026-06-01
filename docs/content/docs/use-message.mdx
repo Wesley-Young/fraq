@@ -62,9 +62,9 @@ ctx.router.command('confirm', {}, async (session) => {
 | ---------------------- | ------------------- | ------- | ---------------------------- |
 | `session`              | `Session`           | —       | 当前消息上下文，用于隔离会话 |
 | `options.signal`       | `AbortSignal`       | —       | 可选，用于提前取消等待       |
-| `options.timeout`      | `number`            | `5000`  | 超时时间（毫秒）             |
+| `options.timeout`      | `number`            | `5000`  | 超时时间（毫秒），`0` 或负数表示不启用超时 |
 | `options.timeoutError` | `boolean`           | `false` | 超时时是否抛出错误           |
-| `options.timeoutReply` | `OutgoingSegment[]` | —       | 超时后自动回复的消息         |
+| `options.timeoutReply` | `null \| OutgoingSegment[]` | — | 超时后自动回复的消息。`null` 表示不回复，未设置时使用默认消息 |
 
 **返回值**：`Promise<Session | null>`
 
@@ -114,6 +114,7 @@ ctx.router.command('ask', {}, async (session) => {
 ### 带超时和自动回复
 
 ```typescript
+// 超时后自动回复一条消息
 const next = await useMessage(session, {
   timeout: 10_000,
   timeoutError: false,
@@ -121,6 +122,31 @@ const next = await useMessage(session, {
 });
 
 if (!next) return; // 超时，已自动回复
+```
+
+### 禁用超时回复
+
+将 `timeoutReply` 设为 `null` 可以在超时时静默返回 `null`，不发送任何消息：
+
+```typescript
+const next = await useMessage(session, {
+  timeout: 10_000,
+  timeoutError: false,
+  timeoutReply: null, // 超时不回复
+});
+
+if (!next) return; // 超时，无自动回复
+```
+
+### 不启用超时
+
+将 `timeout` 设为 `0` 可以禁用超时机制，Promise 会一直等待直到收到消息或被 `AbortSignal` 取消：
+
+```typescript
+const next = await useMessage(session, {
+  timeout: 0, // 不超时
+  signal: ac.signal, // 用 AbortSignal 手动取消
+});
 ```
 
 ### 多轮对话循环

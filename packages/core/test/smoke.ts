@@ -3,7 +3,6 @@ import { Context, definePlugin, msg, param, seg, useMessage, setupUseMessage } f
 const ctx = Context.create({
   connect: {
     baseUrl: 'http://localhost:3000/',
-    accessToken: '11223344Tp,',
   },
 });
 
@@ -20,7 +19,7 @@ const EchoPlugin = definePlugin({
     console.log('初始化完成');
 
     ctx.router.command('echo2', { command: param.greedy() }, async (session, { command }) => {
-      session.reply(msg`You said: ${command} ${seg.face(options.trailingFaceId)}`);
+      await session.reply(msg`You said: ${command} ${seg.face(options.trailingFaceId)}`);
     });
 
     ctx.router.command('echo', { command: param.greedy() }, async (session, { command }) => {
@@ -31,7 +30,7 @@ const EchoPlugin = definePlugin({
         return;
       }
 
-      session.reply(msg`You said: ${command} ${seg.face(options.trailingFaceId)}`);
+      await replySession.reply(msg`You said: ${command} ${seg.face(options.trailingFaceId)}`);
     });
   },
 });
