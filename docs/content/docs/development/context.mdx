@@ -36,10 +36,10 @@ const PluginB = definePlugin({
   },
 });
 
-const fork1 = ctx.fork();
+const fork1 = ctx.fork('fork1');
 fork1.install(PluginA);
 
-const fork2 = ctx.fork();
+const fork2 = ctx.fork('fork2');
 fork2.install(PluginB);
 
 ctx.start();
@@ -74,11 +74,11 @@ const pluginY = definePlugin({
   },
 });
 
-const fork1 = ctx.fork();
+const fork1 = ctx.fork('fork1');
 fork1.install(pluginX, 'fork one');
 fork1.install(pluginY);
 
-const fork2 = ctx.fork();
+const fork2 = ctx.fork('fork2');
 fork2.install(pluginX, 'fork two');
 fork2.install(pluginY);
 
@@ -96,7 +96,7 @@ omega fork two
 
 ```typescript
 ctx.install(pluginX, 'parent context');
-const fork1 = ctx.fork();
+const fork1 = ctx.fork('fork1');
 fork1.install(pluginX, 'fork one');
 fork1.install(pluginY);
 ctx.start();
@@ -111,7 +111,7 @@ ctx.start();
 `ctx.fork` 支持传入一个 `Filter` 对象来过滤事件，例如：
 
 ```typescript
-ctx.fork({
+ctx.fork('fork1', {
   message_receive: ({ data }) =>
     data.message_scene === 'group' && data.peer_id === 123456,
   message_recall: ({ data }) =>
@@ -152,8 +152,8 @@ const filter4 = filter.and(filter.group(123456), filter.admin());
 随后，就可以将这些过滤器传入 `ctx.fork` 来创建新的 `Context`，例如：
 
 ```typescript
-ctx.fork(filter1).install(pluginA); // pluginA 只会监听来自群聊 123456 和 654321 的事件
-ctx.fork(filter4).install(pluginB); // pluginB 只会监听来自群聊 123456 的管理员的消息事件
+ctx.fork('fork1', filter1).install(pluginA); // pluginA 只会监听来自群聊 123456 和 654321 的事件
+ctx.fork('fork2', filter4).install(pluginB); // pluginB 只会监听来自群聊 123456 的管理员的消息事件
 ctx.start();
 ```
 

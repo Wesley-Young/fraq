@@ -22,6 +22,7 @@ function emitEvent<K extends keyof EventMap>(ctx: Context, type: K, event: Event
 test('fork filters reject events without an explicit predicate', () => {
   const parent = createTestContext();
   const child = parent.fork(
+    'child',
     filter.define({
       message_receive: () => true,
     }),
@@ -52,6 +53,7 @@ test('fork filters reject events without an explicit predicate', () => {
 test('fork filters pass events when the predicate accepts them', () => {
   const parent = createTestContext();
   const child = parent.fork(
+    'child',
     filter.define({
       message_receive: () => true,
     }),
@@ -73,6 +75,7 @@ test('fork filters pass events when the predicate accepts them', () => {
       sender_id: 1,
       time: 1,
       segments: [],
+      // @ts-expect-error
       friend: {},
     },
   });

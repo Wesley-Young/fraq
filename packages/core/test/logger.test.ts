@@ -65,7 +65,7 @@ test('logger emits structured log messages', () => {
 test('plugin receives a logger proxy scoped to the plugin name', async () => {
   const logs: LogMessage[] = [];
   const parent = createTestContext(logs);
-  const child = parent.fork();
+  const child = parent.fork('child');
   let pluginLogger: Context['logger'] | undefined;
 
   child.install(

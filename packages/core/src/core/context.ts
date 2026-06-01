@@ -29,7 +29,8 @@ export interface ContextOptions {
 
 export class Context {
   readonly router = new Router();
-  readonly logger = new Logger((message) => this.logHandler?.(message), 'context');
+  readonly logger: Logger;
+  readonly name: string;
 
   private readonly parent?: Context;
   private readonly filter?: Filter;
@@ -47,12 +48,15 @@ export class Context {
   private constructor(
     readonly client: MilkyClient,
     options?: ContextOptions,
+    name?: string,
     parent?: Context,
     filter?: Filter,
   ) {
     this.initialReconnectDelayMs = options?.connect.initialReconnectDelay ?? DEFAULT_INITIAL_RECONNECT_DELAY_MS;
     this.maxReconnectDelayMs = options?.connect.maxReconnectDelay ?? DEFAULT_MAX_RECONNECT_DELAY_MS;
     this.logHandler = options?.logHandler ?? parent?.logHandler;
+    this.name = name ?? 'root';
+    this.logger = new Logger((message) => this.logHandler?.(message), this.name);
 
     this.parent = parent;
     this.filter = filter;
@@ -114,8 +118,8 @@ export class Context {
     return this.tryResolve(service) !== undefined;
   }
 
-  fork(filter?: Filter): Context {
-    const subContext = new Context(this.client, undefined, this, filter);
+  fork(name: string, filter?: Filter): Context {
+    const subContext = new Context(this.client, undefined, name, this, filter);
     this.subContexts.push(subContext);
     return subContext;
   }

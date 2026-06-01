@@ -22,7 +22,7 @@ function createTestContext(): Context {
 }
 
 function createStartableContext(): Context {
-  return createTestContext().fork();
+  return createTestContext().fork('startable');
 }
 
 test('provides and resolves service instances by class', () => {
@@ -53,7 +53,7 @@ test('rejects duplicate service providers in the same context', () => {
 
 test('sub contexts inherit parent services', () => {
   const parent = createTestContext();
-  const child = parent.fork();
+  const child = parent.fork('child');
   const alpha = new AlphaService();
 
   parent.provide(AlphaService, alpha);
@@ -63,7 +63,7 @@ test('sub contexts inherit parent services', () => {
 
 test('sub contexts can override parent services without affecting parent', () => {
   const parent = createTestContext();
-  const child = parent.fork();
+  const child = parent.fork('child');
   const parentAlpha = new AlphaService();
   const childAlpha = new AlphaService();
 
@@ -213,7 +213,7 @@ test('rejects startup when a plugin declares but does not provide a service', as
 
 test('does not count inherited services as provided by a child plugin', async () => {
   const parent = createTestContext();
-  const child = parent.fork();
+  const child = parent.fork('child');
 
   parent.provide(AlphaService, new AlphaService());
   child.install(
@@ -255,7 +255,7 @@ test('rejects startup when a plugin throws and skips later plugins', async () =>
 
 test('uses services from parent contexts to satisfy plugin dependencies', async () => {
   const parent = createTestContext();
-  const child = parent.fork();
+  const child = parent.fork('child');
   const alpha = new AlphaService();
 
   parent.provide(AlphaService, alpha);
@@ -277,7 +277,7 @@ test('uses services from parent contexts to satisfy plugin dependencies', async 
 
 test('allows a sub context plugin to override a parent service', async () => {
   const parent = createTestContext();
-  const child = parent.fork();
+  const child = parent.fork('child');
   const parentAlpha = new AlphaService();
 
   parent.provide(AlphaService, parentAlpha);
