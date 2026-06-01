@@ -12,6 +12,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { buttonVariants } from '@/components/ui/button';
+import { isAprilFools } from '@/lib/april-fools';
 import { cn } from '@/lib/cn';
 import { docsRoute, gitConfig } from '@/lib/shared';
 
@@ -25,7 +26,9 @@ export default function HomePage() {
     <main className="w-full">
       <section className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-6 py-16 md:py-24">
         <div className="max-w-3xl">
-          <h1 className="text-5xl font-semibold tracking-normal text-fd-foreground md:text-7xl">Fraq</h1>
+          <h1 className="text-5xl font-semibold tracking-normal text-fd-foreground md:text-7xl">
+            {isAprilFools() ? 'F8fq' : 'Fraq'}
+          </h1>
           <p className="mt-5 text-lg text-fd-muted-foreground md:text-xl">
             面向 Milky 协议的 TypeScript 聊天机器人框架
           </p>
