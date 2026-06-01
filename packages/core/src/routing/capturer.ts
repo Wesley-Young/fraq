@@ -102,4 +102,14 @@ export namespace capturer {
       },
     };
   }
+
+  export const catchAll: Capturer<true> = {
+    typeInstruction: { type: 'string' },
+    capture(tokenizer) {
+      while (tokenizer.hasNext()) {
+        tokenizer.next()
+      }
+      return true
+    },
+  }
 }

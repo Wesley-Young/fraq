@@ -36,4 +36,8 @@ export namespace param {
   export function segment<T extends Exclude<Token, string>['type']>(type: T): Parameter<Extract<Token, { type: T }>> {
     return new Parameter(capturer.segment(type));
   }
+
+  export function catchAll(): Parameter<true> {
+    return new Parameter(capturer.catchAll);
+  }
 }
