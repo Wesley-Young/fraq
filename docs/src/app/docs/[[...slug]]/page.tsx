@@ -55,7 +55,7 @@ export async function generateMetadata(props: PageProps<'/docs/[[...slug]]'>): P
   if (!page) notFound();
 
   return {
-    title: page.data.title,
+    title: `Fraq | ${page.data.title}`,
     description: page.data.description,
     openGraph: {
       images: getPageImage(page).url,

@@ -1,4 +1,10 @@
+import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
+
+export const metadata: Metadata = {
+  title: 'Fraq',
+  description: 'Milky 聊天机器人框架',
+};
 
 export default function HomePage() {
   redirect('/docs');
