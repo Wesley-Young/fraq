@@ -24,7 +24,47 @@ export function msg(
   if (buffer) {
     segments.push({ type: 'text', data: { text: buffer } });
   }
-  return segments;
+  return trimBoundaryTextSegments(segments);
+}
+
+function isTextSegment(segment: types.OutgoingSegment_ZodInput): segment is types.OutgoingTextSegment_ZodInput {
+  return segment.type === 'text';
+}
+
+function withText(segment: types.OutgoingTextSegment_ZodInput, text: string): types.OutgoingTextSegment_ZodInput {
+  return {
+    ...segment,
+    data: {
+      ...segment.data,
+      text,
+    },
+  };
+}
+
+function trimBoundaryTextSegments(segments: types.OutgoingSegment_ZodInput[]): types.OutgoingSegment_ZodInput[] {
+  const result = [...segments];
+  const first = result[0];
+  if (first && isTextSegment(first)) {
+    const text = first.data.text.trimStart();
+    if (text) {
+      result[0] = withText(first, text);
+    } else {
+      result.shift();
+    }
+  }
+
+  const lastIndex = result.length - 1;
+  const last = result[lastIndex];
+  if (last && isTextSegment(last)) {
+    const text = last.data.text.trimEnd();
+    if (text) {
+      result[lastIndex] = withText(last, text);
+    } else {
+      result.pop();
+    }
+  }
+
+  return result;
 }
 
 export namespace seg {

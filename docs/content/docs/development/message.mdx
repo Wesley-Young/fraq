@@ -74,6 +74,8 @@ msg`This is an image: ${{ type: 'image', data: { uri: '...' } }}`;
 
     `msg` 除了接受 `string`、`number` 和 `boolean` 类型的插值外，还可以接受符合 `OutgoingSegment_ZodInput` 类型的对象。前面几种基本类型的插值会直接作为字符串拼接到文本消息段中，而 `OutgoingSegment_ZodInput` 类型的插值则会被直接作为一个消息段插入到结果数组中。当然，如果传入其他类型的插值，编译器会报错。
 
+    此外，`msg` 会自动删除整条消息首尾文本中的空白字符，因此你可以更放心地使用多行模板字符串来组织消息内容。这个处理只作用于消息边界，不会删除消息段之间用于排版的空格。
+
     你可以访问 [Mozilla 的文档](https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Template_literals)来了解更多关于标签模板字符串的信息。
 
   </Accordion>
