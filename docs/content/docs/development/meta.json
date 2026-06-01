@@ -1,0 +1,11 @@
+{
+  "pages": [
+    "start",
+    "message",
+    "command",
+    "protocol",
+    "plugin",
+    "logging",
+    "context"
+  ]
+}

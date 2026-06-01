@@ -2,7 +2,9 @@
 title: 快速开始
 ---
 
-欢迎来到 Fraq 的文档！Fraq 是一个 Milky 协议下的聊天机器人框架。Milky 是基于 HTTP / WebSocket 通信的 QQ 机器人应用接口标准。你可以通过 [Milky 的官方网站](https://milky.ntqqrev.org/)来了解更多关于 Milky 的信息，例如它的设计理念、API 规范、支持该协议的协议端等。
+import { ServerIcon, SquareCodeIcon } from 'lucide-react';
+
+欢迎来到 Fraq 的文档！Fraq 是一个 Milky 协议下的 TypeScript 聊天机器人框架。Milky 是基于 HTTP / WebSocket 通信的 QQ 机器人应用接口标准。你可以随时通过 [Milky 的官方网站](https://milky.ntqqrev.org/)来了解更多关于 Milky 的信息。
 
 ## 安装 Fraq
 
@@ -17,3 +19,20 @@ pnpm add @fraqjs/fraq
 ```
 
 Fraq 需要在 Node.js 22+ 环境（或其他的支持 WebSocket API 的服务端 JS 环境）中运行。强烈建议使用 TypeScript 来编写 Fraq 代码，并使用 [tsx](https://www.npmjs.com/package/tsx) 来运行你的项目。
+
+## 阅读指南
+
+根据需求的不同，我们准备了如下的文档供你参考：
+
+<Cards>
+  <Card
+    icon={<SquareCodeIcon />}
+    href="./docs/development/start"
+    title="开发指南"
+  >
+    从简单的 Echo 机器人开始，逐步深入了解 Fraq 的各种功能和特性。
+  </Card>
+  <Card icon={<ServerIcon />} title="使用指南">
+    (Work In Progress) 了解如何安装和配置插件，进而搭建一个属于你的 Fraq 机器人。
+  </Card>
+</Cards>

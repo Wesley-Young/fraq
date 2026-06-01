@@ -1,13 +1,11 @@
 {
   "pages": [
     "index",
-    "---开发指南---",
-    "development/start",
-    "development/message",
-    "development/command",
-    "development/protocol",
-    "development/plugin",
-    "development/logging",
-    "development/context"
+    "---[SquareCode]开发指南---",
+    "...development",
+    "---[Server]使用指南---",
+    "...usage",
+    "---外部资源---",
+    "external:[Milky 官网](https://milky.ntqqrev.org/)"
   ]
 }
