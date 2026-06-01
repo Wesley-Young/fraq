@@ -37,11 +37,11 @@ class MilkyClientBase {
       headers: this.baseHeaders,
     });
     if (!response.ok) {
-      throw new Error(`API call failed with status ${response.status}`);
+      throw new Error(`API call ${endpoint} failed with HTTP status ${response.status}`);
     }
     const json = (await response.json()) as MilkyApiResponseRoot;
     if (json.status === 'failed') {
-      throw new Error(`API call failed with retcode ${json.retcode}: ${json.message}`);
+      throw new Error(`API call ${endpoint} failed with retcode ${json.retcode}: ${json.message}`);
     }
     return json.data;
   }

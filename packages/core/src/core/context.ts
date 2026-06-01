@@ -66,7 +66,10 @@ export class Context {
       try {
         await this.router.dispatch(this.createSession(message), message);
       } catch (error) {
-        this.logger.error('Error routing command', error);
+        this.logger.error(
+          `Error routing command (scene=${message.message_scene} peer=${message.peer_id} sender=${message.sender_id} seq=${message.message_seq})`,
+          error,
+        );
       }
     });
   }
@@ -142,12 +145,14 @@ export class Context {
   private async applyPlugins(): Promise<void> {
     for (const { plugin, args } of this.sortPlugins()) {
       const providedBeforeApply = new Set(this.services.keys());
+      this.logger.info(`Applying plugin ${plugin.name}`);
       await plugin.apply(this.createProxyContextForPlugin(plugin), ...args);
       for (const service of plugin.provides ?? []) {
         if (!this.services.has(service) || providedBeforeApply.has(service)) {
           throw new Error(`${plugin.name} declares service ${getServiceName(service)} but did not provide it.`);
         }
       }
+      this.logger.debug(`Applied plugin ${plugin.name}`);
     }
   }
 
@@ -290,7 +295,10 @@ export class Context {
               break;
           }
         } catch (error) {
-          this.logger.error('Error sending reply', error);
+          this.logger.error(
+            `Error sending reply (source msg: scene=${message.message_scene} peer=${message.peer_id} sender=${message.sender_id} seq=${message.message_seq})`,
+            error,
+          );
         }
       },
     };
