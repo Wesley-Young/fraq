@@ -18,13 +18,15 @@ type InstalledPlugin = {
 };
 
 export interface ContextOptions {
-  connect: {
-    baseUrl: string;
-    accessToken?: string;
-    initialReconnectDelay?: number;
-    maxReconnectDelay?: number;
+  reconnect?: {
+    initialDelayMs?: number;
+    maxDelayMs?: number;
   };
   logHandler?: (message: LogMessage) => void;
+}
+
+export interface ContextUrlOptions {
+  accessToken?: string;
 }
 
 export class Context {
@@ -52,8 +54,8 @@ export class Context {
     parent?: Context,
     filter?: Filter,
   ) {
-    this.initialReconnectDelayMs = options?.connect.initialReconnectDelay ?? DEFAULT_INITIAL_RECONNECT_DELAY_MS;
-    this.maxReconnectDelayMs = options?.connect.maxReconnectDelay ?? DEFAULT_MAX_RECONNECT_DELAY_MS;
+    this.initialReconnectDelayMs = options?.reconnect?.initialDelayMs ?? DEFAULT_INITIAL_RECONNECT_DELAY_MS;
+    this.maxReconnectDelayMs = options?.reconnect?.maxDelayMs ?? DEFAULT_MAX_RECONNECT_DELAY_MS;
     this.logHandler = options?.logHandler ?? parent?.logHandler;
     this.name = name ?? 'root';
     this.logger = new Logger((message) => this.logHandler?.(message), this.name);
@@ -134,7 +136,7 @@ export class Context {
     }
     this.isStarted = true;
     if (!this.parent) {
-      void this.connectEventWebSocket();
+      void this.runEventStream();
     }
   }
 
@@ -252,27 +254,21 @@ export class Context {
     });
   }
 
-  private async connectEventWebSocket(): Promise<void> {
+  private async runEventStream(): Promise<void> {
     let reconnectDelay = this.initialReconnectDelayMs;
     while (this.isStarted) {
       try {
-        const ws = await this.client.openEventWebSocket((event) => {
+        const subscription = await this.client.startEvents((event: Event) => {
           try {
-            if (typeof event.data !== 'string') {
-              throw new Error(`Expected text frame, got ${typeof event.data}`);
-            }
-            const payload = JSON.parse(event.data) as Event;
-            this.eventBus.emit(payload.event_type, payload);
+            this.eventBus.emit(event.event_type, event);
           } catch (error) {
-            this.logger.error('Error handling WebSocket event', error);
+            this.logger.error('Error handling event stream event', error);
           }
         });
         reconnectDelay = this.initialReconnectDelayMs;
-        await new Promise<void>((resolve) => {
-          ws.addEventListener('close', () => resolve(), { once: true });
-        });
+        await subscription.closed;
       } catch (error) {
-        this.logger.error('Error connecting event WebSocket', error);
+        this.logger.error('Error connecting event stream', error);
       }
       await new Promise((resolve) => setTimeout(resolve, reconnectDelay));
       reconnectDelay = Math.min(reconnectDelay * 2, this.maxReconnectDelayMs);
@@ -308,8 +304,12 @@ export class Context {
     };
   }
 
-  static create(options: ContextOptions): Context {
-    const client = createMilkyClient(options.connect.baseUrl, { accessToken: options.connect.accessToken });
+  static fromUrl(baseUrl: string | URL, options?: ContextOptions & ContextUrlOptions): Context {
+    const client = createMilkyClient(baseUrl, { accessToken: options?.accessToken });
+    return new Context(client, options);
+  }
+
+  static fromClient(client: MilkyClient, options?: ContextOptions): Context {
     return new Context(client, options);
   }
 }

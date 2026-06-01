@@ -14,6 +14,24 @@ title: 深入了解 Context
 
 正如一开始所提到的，`Context` 是 Fraq 的核心类，代表了一个机器人实例。它包含了机器人的配置、状态、路由等信息。我们通过调用 `ctx` 的各种方法来 “组装” 这个机器人，例如定义指令、安装插件、提供服务等。最后，我们调用 `ctx.start` 来启动这个机器人，使其开始监听用户输入并响应。
 
+## 创建 Context
+
+最常见的方式是通过 Milky 协议端的地址创建 `Context`：
+
+```typescript
+const ctx = Context.fromUrl('http://localhost:30001', {
+  accessToken: '<如果你的 Milky 协议端配置了 token，请在这里添加>',
+});
+```
+
+如果你需要接入自定义协议客户端（例如 Mock Client），可以直接传入一个实现了 `MilkyClient` 接口的对象：
+
+```typescript
+const ctx = Context.fromClient(client);
+```
+
+这种方式只要求客户端提供 Milky API 调用能力和事件流入口，具体通信方式可以由客户端自行决定。
+
 ## 继承与隔离
 
 我们可以通过 `ctx.fork` 来创建一个继承当前 `ctx` 的新 `Context` 实例。这个新实例会与父 `Context` 使用同一个协议客户端，并且可以访问父 `Context` 提供的服务；但在新创建出的这个 `Context` 上进行配置、定义路由以及安装插件等操作不会影响到父 `Context`。我们结合上一节的依赖注入来看看这个特性：

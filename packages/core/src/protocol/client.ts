@@ -1,10 +1,20 @@
 import type { ApiEndpoints } from './endpoint';
+import type { Event } from './types';
 
 interface MilkyApiResponseRoot {
   status: 'ok' | 'failed';
   retcode: number;
   message?: string;
   data?: unknown;
+}
+
+export interface MilkyEventSubscription {
+  closed: Promise<void>;
+  stop(): void | Promise<void>;
+}
+
+export interface MilkyClient extends ApiEndpoints {
+  startEvents(onEvent: (event: Event) => void | Promise<void>): Promise<MilkyEventSubscription>;
 }
 
 class MilkyClientBase {
@@ -14,12 +24,13 @@ class MilkyClientBase {
   private readonly baseHeaders: Record<string, string>;
 
   constructor(
-    baseUrl: string,
+    baseUrl: string | URL,
     options?: {
       accessToken?: string;
     },
   ) {
-    this.baseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+    const normalizedBaseUrl = baseUrl.toString();
+    this.baseUrl = normalizedBaseUrl.endsWith('/') ? normalizedBaseUrl.slice(0, -1) : normalizedBaseUrl;
     this.wsBaseUrl = this.baseUrl.replace(/^http/, 'ws');
     this.accessToken = options?.accessToken;
     this.baseHeaders = {
@@ -46,17 +57,47 @@ class MilkyClientBase {
     return json.data;
   }
 
-  async openEventWebSocket(onEvent: (event: MessageEvent) => void): Promise<WebSocket> {
+  async startEvents(onEvent: (event: Event) => void | Promise<void>): Promise<MilkyEventSubscription> {
     const ws = new WebSocket(`${this.wsBaseUrl}/event${this.accessToken ? `?access_token=${this.accessToken}` : ''}`);
-    ws.addEventListener('message', onEvent);
-    return new Promise((resolve, reject) => {
-      ws.addEventListener('open', () => resolve(ws));
+    let closeSubscription: (error?: unknown) => void = () => {};
+    const closed = new Promise<void>((resolve, reject) => {
+      closeSubscription = (error?: unknown) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve();
+        }
+      };
+    });
+
+    ws.addEventListener('message', async (event) => {
+      try {
+        if (typeof event.data !== 'string') {
+          throw new Error(`Expected text frame, got ${typeof event.data}`);
+        }
+        await onEvent(JSON.parse(event.data) as Event);
+      } catch (error) {
+        closeSubscription(error);
+        ws.close();
+      }
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      ws.addEventListener('open', () => resolve(), { once: true });
       ws.addEventListener('error', (event) => reject(new Error(`WebSocket error: ${event}`)));
     });
+
+    ws.addEventListener('error', (event) => closeSubscription(new Error(`WebSocket error: ${event}`)));
+    ws.addEventListener('close', () => closeSubscription(), { once: true });
+
+    return {
+      closed,
+      stop() {
+        ws.close();
+      },
+    };
   }
 }
-
-export type MilkyClient = MilkyClientBase & ApiEndpoints;
 
 export function createMilkyClient(...params: ConstructorParameters<typeof MilkyClientBase>): MilkyClient {
   const base = new MilkyClientBase(...params);
@@ -70,5 +111,5 @@ export function createMilkyClient(...params: ConstructorParameters<typeof MilkyC
         return target[endpoint];
       }
     },
-  }) as MilkyClientBase & ApiEndpoints;
+  }) as unknown as MilkyClient;
 }

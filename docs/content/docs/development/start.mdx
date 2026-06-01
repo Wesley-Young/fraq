@@ -23,11 +23,8 @@ You said: <任意文本>
 ```typescript
 import { Context, param } from '@fraqjs/fraq';
 
-const ctx = Context.create({
-  connect: {
-    baseUrl: '<替换成你的 Milky 协议端地址>',
-    // accessToken: '<如果你的 Milky 协议端配置了 token，请在这里添加>',
-  },
+const ctx = Context.fromUrl('<替换成你的 Milky 协议端地址>', {
+  // accessToken: '<如果你的 Milky 协议端配置了 token，请在这里添加>',
 });
 
 ctx.router.command(
@@ -64,12 +61,10 @@ npx tsx index.ts
 我们来逐行解释一下上面的代码：
 
 ```typescript
-const ctx = Context.create({
-  // ...
-});
+const ctx = Context.fromUrl('<替换成你的 Milky 协议端地址>');
 ```
 
-`Context` 是 Fraq 的核心类，代表了一个机器人实例，它包含了机器人的配置、状态、路由等信息。我们通过 `Context.create` 方法来创建一个新的 `Context` 实例，并传入一个配置对象。在这个配置对象中，我们指定了连接 Milky 协议端的地址。
+`Context` 是 Fraq 的核心类，代表了一个机器人实例，它包含了机器人的配置、状态、路由等信息。我们通过 `Context.fromUrl` 方法来创建一个新的 `Context` 实例，并传入 Milky 协议端的地址。
 
 ```typescript
 ctx.router.command(

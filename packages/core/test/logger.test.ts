@@ -1,13 +1,11 @@
 import { Context, definePlugin, type LogMessage } from '../src';
+import { createMockMilkyClient } from './util/mock';
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
 function createTestContext(logs: LogMessage[] = []): Context {
-  return Context.create({
-    connect: {
-      baseUrl: 'http://localhost:30001/',
-    },
+  return Context.fromClient(createMockMilkyClient(), {
     logHandler(message) {
       logs.push(message);
     },
@@ -33,25 +31,25 @@ test('logger emits structured log messages', () => {
   assert.deepEqual(logs.map(snapshot), [
     {
       level: 'debug',
-      module: 'context',
+      module: 'root',
       message: 'debug message',
       error: undefined,
     },
     {
       level: 'info',
-      module: 'context',
+      module: 'root',
       message: 'info message',
       error: undefined,
     },
     {
       level: 'warn',
-      module: 'context',
+      module: 'root',
       message: 'warn message',
       error: warnError,
     },
     {
       level: 'error',
-      module: 'context',
+      module: 'root',
       message: 'error message',
       error: errorDetail,
     },
@@ -88,8 +86,20 @@ test('plugin receives a logger proxy scoped to the plugin name', async () => {
   assert.deepEqual(logs.map(snapshot), [
     {
       level: 'info',
+      module: 'child',
+      message: 'Applying plugin plugin-logger',
+      error: undefined,
+    },
+    {
+      level: 'info',
       module: 'plugin-logger',
       message: 'plugin message',
+      error: undefined,
+    },
+    {
+      level: 'debug',
+      module: 'child',
+      message: 'Applied plugin plugin-logger',
       error: undefined,
     },
   ]);

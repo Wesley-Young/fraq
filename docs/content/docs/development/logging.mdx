@@ -32,10 +32,7 @@ try {
 ```typescript
 import { Context } from '@fraqjs/fraq';
 
-const ctx = Context.create({
-  connect: {
-    baseUrl: '<替换成你的 Milky 协议端地址>',
-  },
+const ctx = Context.fromUrl('<替换成你的 Milky 协议端地址>', {
   logHandler(message) {
     console.log(`[${message.level}] [${message.module}] ${message.message}`);
   },
@@ -49,10 +46,10 @@ ctx.start();
 传给 `logHandler` 的日志消息是一个普通对象，包含这些字段：
 
 - `level`：日志级别，可能的值有 `debug`、`info`、`warn` 和 `error`。
-- `module`：日志来源的模块名称，默认为 `context`，但在插件里会自动设置为插件名称。
+- `module`：日志来源的模块名称，默认为 `root`，但在插件里会自动设置为插件名称。
 - `message`：日志内容字符串。
 - `error`：可选字段，如果日志是由一个错误对象触发的，这里会包含这个错误对象。
-- `timestamp`：日志生成的时间戳，通过 `Date.now()` 获取，单位是毫秒。
+- `time`：日志生成的时间戳，通过 `Date.now()` 获取，单位是毫秒。
 
 在这个例子中，我们只是简单地把日志格式化之后输出到了终端。实际项目中，你也可以在 `logHandler` 里把日志发送到文件、数据库、监控系统，或者传递给你已经在使用的日志库来处理。
 
@@ -81,4 +78,4 @@ export const EchoPlugin = definePlugin({
 });
 ```
 
-如果这个插件输出了一条日志，那么 `logHandler` 收到的 `module` 字段会是 `echo`，而不是默认的 `context`。这对于排查插件初始化顺序、依赖注入问题，或者区分不同功能模块的运行状态都很有帮助。
+如果这个插件输出了一条日志，那么 `logHandler` 收到的 `module` 字段会是 `echo`，而不是默认的 `root`。这对于排查插件初始化顺序、依赖注入问题，或者区分不同功能模块的运行状态都很有帮助。

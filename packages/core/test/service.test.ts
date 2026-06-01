@@ -1,4 +1,5 @@
 import { Context, definePlugin } from '../src';
+import { createMockMilkyClient } from './util/mock';
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -14,15 +15,7 @@ class BetaService {
 class GammaService {}
 
 function createTestContext(): Context {
-  return Context.create({
-    connect: {
-      baseUrl: 'http://localhost:30001/',
-    },
-  });
-}
-
-function createStartableContext(): Context {
-  return createTestContext().fork('startable');
+  return Context.fromClient(createMockMilkyClient());
 }
 
 test('provides and resolves service instances by class', () => {
@@ -75,7 +68,7 @@ test('sub contexts can override parent services without affecting parent', () =>
 });
 
 test('sorts plugins by service dependencies', async () => {
-  const ctx = createStartableContext();
+  const ctx = createTestContext();
   const calls: string[] = [];
 
   const BetaPlugin = definePlugin({
@@ -106,7 +99,7 @@ test('sorts plugins by service dependencies', async () => {
 });
 
 test('preserves install order when plugins do not depend on each other', async () => {
-  const ctx = createStartableContext();
+  const ctx = createTestContext();
   const calls: string[] = [];
 
   ctx.install(
@@ -132,7 +125,7 @@ test('preserves install order when plugins do not depend on each other', async (
 });
 
 test('rejects startup when a required service is missing', async () => {
-  const ctx = createStartableContext();
+  const ctx = createTestContext();
 
   ctx.install(
     definePlugin({
@@ -146,7 +139,7 @@ test('rejects startup when a required service is missing', async () => {
 });
 
 test('rejects startup when multiple plugins declare the same provided service', async () => {
-  const ctx = createStartableContext();
+  const ctx = createTestContext();
 
   ctx.install(
     definePlugin({
@@ -171,7 +164,7 @@ test('rejects startup when multiple plugins declare the same provided service', 
 });
 
 test('rejects startup when plugin service dependencies form a cycle', async () => {
-  const ctx = createStartableContext();
+  const ctx = createTestContext();
 
   ctx.install(
     definePlugin({
@@ -198,7 +191,7 @@ test('rejects startup when plugin service dependencies form a cycle', async () =
 });
 
 test('rejects startup when a plugin declares but does not provide a service', async () => {
-  const ctx = createStartableContext();
+  const ctx = createTestContext();
 
   ctx.install(
     definePlugin({
@@ -228,7 +221,7 @@ test('does not count inherited services as provided by a child plugin', async ()
 });
 
 test('rejects startup when a plugin throws and skips later plugins', async () => {
-  const ctx = createStartableContext();
+  const ctx = createTestContext();
   const calls: string[] = [];
 
   ctx.install(
@@ -298,7 +291,7 @@ test('allows a sub context plugin to override a parent service', async () => {
 });
 
 test('resolves dependencies against services provided before startup', async () => {
-  const ctx = createStartableContext();
+  const ctx = createTestContext();
   const alpha = new AlphaService();
 
   ctx.provide(AlphaService, alpha);

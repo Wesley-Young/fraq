@@ -1,10 +1,6 @@
 import { Context, definePlugin, msg, param, seg } from '../src';
 
-const ctx = Context.create({
-  connect: {
-    baseUrl: 'http://localhost:30001/',
-  },
-});
+const ctx = Context.fromUrl('http://localhost:30001/');
 
 const EchoPlugin = definePlugin({
   name: 'echo',
