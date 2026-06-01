@@ -229,6 +229,6 @@ adminRouter.command('admincmd', { arg: param.str() }, (session, { arg }) => {
 
 {/* prettier-ignore */}
 <Callout>
-  对于插件开发者，非必要情况下不应该主动调用 `ctx.router.filter` 来控制指令的触发权限，因为这会导致指令的可见性和触发条件不能被插件部署方所预期。更好的做法是将过滤指令的任务交给插件部署方，由插件部署方使用 [`ctx.fork`](/docs/context#事件过滤) 来创建新的 `Context` 实例，并在新的实例上安装插件来实现指令的权限控制。
+  对于插件开发者，非必要情况下不应该主动调用 `ctx.router.filter` 来控制指令的触发权限，因为这会导致指令的可见性和触发条件不能被插件部署方所预期。更好的做法是将过滤指令的任务交给插件部署方，由插件部署方使用 [`ctx.fork`](./context.mdx#事件过滤) 来创建新的 `Context` 实例，并在新的实例上安装插件来实现指令的权限控制。
 </Callout>
 {/* prettier-ignore-end */}
