@@ -13,16 +13,18 @@ for (const file of files) {
   if (formatted !== source) {
     writeFileSync(file, formatted);
   }
+
+  console.log(`Formatted comments in ${file}.`);
 }
 
-function formatDtsComments(source) {
+function formatDtsComments(source: string): string {
   const lines = source.split('\n').flatMap((line) => splitInlineJSDoc(line));
 
   return removeAdjacentDuplicateJSDoc(lines).join('\n');
 }
 
-function removeAdjacentDuplicateJSDoc(lines) {
-  const result = [];
+function removeAdjacentDuplicateJSDoc(lines: string[]): string[] {
+  const result: string[] = [];
 
   for (const line of lines) {
     const previous = result.at(-1);
@@ -37,11 +39,11 @@ function removeAdjacentDuplicateJSDoc(lines) {
   return result;
 }
 
-function isSingleLineJSDoc(line) {
+function isSingleLineJSDoc(line: string): boolean {
   return /^\/\*\*.*\*\/$/.test(line.trim());
 }
 
-function splitInlineJSDoc(line) {
+function splitInlineJSDoc(line: string): string[] {
   // biome-ignore lint/correctness/noEmptyCharacterClassInRegex: This regex is intentionally designed to match the first JSDoc comment in the line, regardless of its content.
   const match = /\/\*\*[^]*?\*\//.exec(line);
 
