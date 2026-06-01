@@ -2,11 +2,12 @@
   "pages": [
     "index",
     "---开发指南---",
-    "message",
-    "command",
-    "protocol",
-    "plugin",
-    "logging",
-    "context"
+    "development/start",
+    "development/message",
+    "development/command",
+    "development/protocol",
+    "development/plugin",
+    "development/logging",
+    "development/context"
   ]
 }
