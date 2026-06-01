@@ -56,7 +56,10 @@ test('logger emits structured log messages', () => {
       error: errorDetail,
     },
   ]);
-  assert.equal(logs.every((message) => typeof message.time === 'number'), true);
+  assert.equal(
+    logs.every((message) => typeof message.time === 'number'),
+    true,
+  );
 });
 
 test('plugin receives a logger proxy scoped to the plugin name', async () => {
