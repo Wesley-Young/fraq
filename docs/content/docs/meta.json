@@ -6,7 +6,7 @@
     "command",
     "protocol",
     "plugin",
-    "context",
-    "logging"
+    "logging",
+    "context"
   ]
 }

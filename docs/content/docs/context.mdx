@@ -4,9 +4,10 @@ title: 深入了解 Context
 
 在此前的例子中，我们已经了解了 `Context` 的许多用法：
 
-- `ctx.router` 是一个 `Router` 实例，我们可以在上面定义指令、进行模式匹配等。
+- `ctx.router` 是一个 `Router` 实例，用于定义指令、进行模式匹配等。
+- `ctx.client` 是一个 `MilkyClient` 实例，用于调用 Milky 的 API。
+- `ctx.logger` 是一个 `Logger` 实例，用于记录日志。
 - `ctx.on` 用于监听事件，例如 `message_receive`、`message_recall` 等。
-- `ctx.client` 是一个 `MilkyClient` 实例，我们可以通过来调用 Milky 的 API。
 - `ctx.install` 用于安装插件。
 - `ctx.provide` 和 `ctx.resolve` 用于提供和解析服务。
 - `ctx.start` 用于启动机器人。
