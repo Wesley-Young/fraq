@@ -14,10 +14,10 @@
     "prepack": "pnpm build"
   },
   "keywords": [],
-  "author": "Wesley F. Young",
+  "author": "fraqjs",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Wesley-Young/fraq.git"
+    "url": "git+https://github.com/fraqjs/fraq.git"
   },
   "homepage": "https://fraq.ntqqrev.org/",
   "license": "MIT",
