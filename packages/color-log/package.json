@@ -1,0 +1,30 @@
+{
+  "name": "@fraqjs/color-log",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Colored console log handler for Fraq",
+  "files": [
+    "dist"
+  ],
+  "main": "dist/index.mjs",
+  "typings": "dist/index.d.mts",
+  "scripts": {
+    "build": "tsdown",
+    "test": "tsx test/smoke.ts",
+    "prepack": "pnpm build"
+  },
+  "keywords": [],
+  "author": "Wesley F. Young",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Wesley-Young/fraq.git"
+  },
+  "homepage": "https://fraq.ntqqrev.org/",
+  "license": "MIT",
+  "dependencies": {
+    "chalk": "^5.6.2"
+  },
+  "peerDependencies": {
+    "@fraqjs/fraq": "workspace:^"
+  }
+}
