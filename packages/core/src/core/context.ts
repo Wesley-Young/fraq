@@ -64,7 +64,7 @@ export class Context {
     });
     this.eventBus.on('message_receive', async ({ data: message }) => {
       try {
-        this.router.dispatch(this.createSession(message), message);
+        await this.router.dispatch(this.createSession(message), message);
       } catch (error) {
         this.logger.error('Error routing command', error);
       }
