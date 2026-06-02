@@ -99,6 +99,16 @@ importers:
       mitt:
         specifier: ^3.0.1
         version: 3.0.1
+    devDependencies:
+      '@fraqjs/mock':
+        specifier: workspace:^
+        version: link:../mock
+
+  packages/mock:
+    dependencies:
+      '@fraqjs/fraq':
+        specifier: workspace:^
+        version: link:../core
 
 packages:
 

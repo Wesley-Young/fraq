@@ -1,5 +1,4 @@
-import type { MilkyClient, MilkyEventSubscription } from '../../src';
-import type { Event } from '../../src/protocol/types';
+import type { MilkyClient, MilkyEventSubscription, milky } from '@fraqjs/fraq';
 
 export interface MockApiCall {
   endpoint: string;
@@ -9,13 +8,13 @@ export interface MockApiCall {
 export interface MockMilkyClient extends MilkyClient {
   readonly apiCalls: MockApiCall[];
   readonly startEventCalls: number;
-  emitEvent(event: Event): Promise<void>;
+  emitEvent(event: milky.Event): Promise<void>;
   closeEvents(): void;
   failNextStart(error: unknown): void;
 }
 
 export function createMockMilkyClient(): MockMilkyClient {
-  let onEvent: ((event: Event) => void | Promise<void>) | undefined;
+  let onEvent: ((event: milky.Event) => void | Promise<void>) | undefined;
   let closeEvents: (() => void) | undefined;
   let startEventCalls = 0;
   let nextStartError: unknown;
@@ -25,7 +24,7 @@ export function createMockMilkyClient(): MockMilkyClient {
     get startEventCalls() {
       return startEventCalls;
     },
-    async startEvents(handler: (event: Event) => void | Promise<void>): Promise<MilkyEventSubscription> {
+    async startEvents(handler: (event: milky.Event) => void | Promise<void>): Promise<MilkyEventSubscription> {
       startEventCalls += 1;
       if (nextStartError) {
         const error = nextStartError;
@@ -43,7 +42,7 @@ export function createMockMilkyClient(): MockMilkyClient {
         },
       };
     },
-    async emitEvent(event: Event): Promise<void> {
+    async emitEvent(event: milky.Event): Promise<void> {
       await onEvent?.(event);
     },
     closeEvents() {

@@ -1,5 +1,6 @@
+import { createMockMilkyClient } from '@fraqjs/mock';
+
 import { Context, type EventMap, filter, type LogMessage, type milky } from '../src';
-import { createMockMilkyClient } from './util/mock';
 
 import assert from 'node:assert/strict';
 import test from 'node:test';

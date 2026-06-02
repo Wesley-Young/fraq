@@ -24,6 +24,9 @@
   "dependencies": {
     "mitt": "^3.0.1"
   },
+  "devDependencies": {
+    "@fraqjs/mock": "workspace:^"
+  },
   "engines": {
     "node": ">=22"
   }
