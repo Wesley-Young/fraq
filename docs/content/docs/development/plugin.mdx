@@ -97,7 +97,7 @@ definePlugin({
 </Callout>
 {/* prettier-ignore-end */}
 
-## 依赖注入
+## 提供与解析服务
 
 插件不仅能用来封装功能，还可以用来提供服务（Service）供其他插件依赖和调用。假设我们有一个 `AlphaService`，它提供了一个 `alpha` 方法：
 
@@ -138,7 +138,29 @@ const PluginB = definePlugin({
 
 例如，如果用户同时安装了 `PluginA` 和 `PluginB`，Fraq 会确保在加载 `PluginB` 之前先加载 `PluginA`，以保证 `AlphaService` 已经被提供了。如果用户没有安装 `PluginA` 就安装了 `PluginB`，Fraq 会抛出一个错误，提示缺少依赖。
 
-## 可选依赖
+### 使用 `inject`
+
+在上面的例子中，`PluginB` 需要声明 `requires` 来依赖 `AlphaService`，并且在 `apply` 方法中调用 `ctx.resolve(AlphaService)` 来获取服务实例。Fraq 提供了一个更简洁的方式来实现这个过程，那就是使用 `inject` 字段：
+
+```typescript
+const PluginB = definePlugin({
+  name: 'plugin-b',
+  inject: {
+    alpha: AlphaService,
+  },
+  apply(ctx) {
+    console.log(ctx.alpha.alpha()); // prints 'alpha'
+  },
+});
+```
+
+在上面的例子中，`inject` 字段声明了一个名为 `alpha` 的注入，它对应了 `AlphaService`。Fraq 会自动解析这个注入，并将 `AlphaService` 的实例注入到 `apply` 方法的 `ctx` 参数中，这样我们就可以直接通过 `ctx.alpha` 来访问这个服务实例了。
+
+需要注意的是，`inject` 和 `requires` 不能同时使用在同一个插件中，因为它们的作用是相同的，都是用来声明插件的依赖关系的；如果同时使用，Fraq 会抛出一个错误提示。
+
+推荐使用 `inject` 这种更加简便的方式来声明和解析依赖。
+
+### 可选依赖
 
 除此之外，`Context` 还提供了 `tryResolve` 和 `isProvided` 方法，分别用于尝试获取一个服务的实例（如果没有提供则返回 `undefined`）和检查一个服务是否已经被提供了。在这种情况下，用到该服务的插件并不需要声明对它的依赖：
 
