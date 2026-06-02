@@ -120,6 +120,12 @@ importers:
         specifier: workspace:^
         version: link:../../packages/mock
 
+  plugins/random:
+    dependencies:
+      '@fraqjs/fraq':
+        specifier: workspace:^
+        version: link:../../packages/core
+
 packages:
 
   '@alloc/quick-lru@5.2.0':
