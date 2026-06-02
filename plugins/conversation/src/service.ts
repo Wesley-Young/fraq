@@ -80,7 +80,7 @@ export class ConversationService {
       if (this.onCollision === 'reject-incoming') {
         return Promise.reject(new ConversationRejectionError('conversation already active'));
       }
-      this.abort(existing);
+      this.abort(existing, 'aborted due to new conversation');
     }
 
     return new Promise((resolve, reject) => {
