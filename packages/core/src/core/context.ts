@@ -5,7 +5,7 @@ import type { EventMap } from '../protocol/endpoint';
 import type { Event, IncomingMessage } from '../protocol/types';
 import { Router, type Session } from '../routing/router';
 import type { Filter } from './filter';
-import { Logger, type LogMessage } from './logging';
+import { Logger, type LogHandler } from './logging';
 import type { ParameterList, Plugin } from './plugin';
 import { getServiceName, type ServiceClass } from './service';
 
@@ -22,7 +22,7 @@ export interface ContextOptions {
     initialDelayMs?: number;
     maxDelayMs?: number;
   };
-  logHandler?: (message: LogMessage) => void;
+  logHandler?: LogHandler;
 }
 
 export interface ContextUrlOptions {
@@ -43,7 +43,7 @@ export class Context {
 
   private readonly initialReconnectDelayMs: number;
   private readonly maxReconnectDelayMs: number;
-  private readonly logHandler?: (message: LogMessage) => void;
+  private readonly logHandler?: LogHandler;
 
   private isStarted = false;
 
