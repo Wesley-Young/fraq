@@ -1,4 +1,4 @@
-import { Context, type EventMap, filter, type milky } from '../src';
+import { Context, type EventMap, filter, type LogMessage, type milky } from '../src';
 import { createMockMilkyClient } from './util/mock';
 
 import assert from 'node:assert/strict';
@@ -6,6 +6,11 @@ import test from 'node:test';
 
 function createTestContext(): Context {
   return Context.fromClient(createMockMilkyClient());
+}
+
+function snapshotLog(message: LogMessage): Omit<LogMessage, 'time'> {
+  const { time: _time, ...rest } = message;
+  return rest;
 }
 
 type TestEventBus = {
@@ -203,18 +208,49 @@ test('session replies through the client API', async () => {
 
 test('retries the event stream after startup failures', async () => {
   const client = createMockMilkyClient();
+  const logs: LogMessage[] = [];
+  const startError = new Error('boom');
   const ctx = Context.fromClient(client, {
     reconnect: {
       initialDelayMs: 0,
       maxDelayMs: 0,
     },
+    logHandler(message) {
+      logs.push(message);
+    },
   });
-  client.failNextStart(new Error('boom'));
+  client.failNextStart(startError);
 
   await ctx.start();
   await new Promise((resolve) => setTimeout(resolve, 0));
 
   assert.equal(client.startEventCalls, 2);
+  assert.deepEqual(logs.map(snapshotLog), [
+    {
+      level: 'debug',
+      module: 'root',
+      message: 'Connecting event stream (attempt=1)',
+      error: undefined,
+    },
+    {
+      level: 'error',
+      module: 'root',
+      message: 'Error connecting event stream; reconnecting in 0ms',
+      error: startError,
+    },
+    {
+      level: 'debug',
+      module: 'root',
+      message: 'Connecting event stream (attempt=2)',
+      error: undefined,
+    },
+    {
+      level: 'info',
+      module: 'root',
+      message: 'Event stream connected',
+      error: undefined,
+    },
+  ]);
 });
 
 test('creates contexts from URLs with the default client', () => {

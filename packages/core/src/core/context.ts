@@ -256,8 +256,10 @@ export class Context {
 
   private async runEventStream(): Promise<void> {
     let reconnectDelay = this.initialReconnectDelayMs;
+    let reconnectAttempt = 1;
     while (this.isStarted) {
       try {
+        this.logger.debug(`Connecting event stream (attempt=${reconnectAttempt})`);
         const subscription = await this.client.startEvents((event: Event) => {
           try {
             this.eventBus.emit(event.event_type, event);
@@ -265,13 +267,17 @@ export class Context {
             this.logger.error('Error handling event stream event', error);
           }
         });
+        this.logger.info('Event stream connected');
         reconnectDelay = this.initialReconnectDelayMs;
+        reconnectAttempt = 1;
         await subscription.closed;
+        this.logger.warn(`Event stream disconnected; reconnecting in ${reconnectDelay}ms`);
       } catch (error) {
-        this.logger.error('Error connecting event stream', error);
+        this.logger.error(`Error connecting event stream; reconnecting in ${reconnectDelay}ms`, error);
       }
       await new Promise((resolve) => setTimeout(resolve, reconnectDelay));
       reconnectDelay = Math.min(reconnectDelay * 2, this.maxReconnectDelayMs);
+      reconnectAttempt += 1;
     }
   }
 
