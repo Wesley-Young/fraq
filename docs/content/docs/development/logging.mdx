@@ -73,6 +73,23 @@ Context.create({
 
 你也可以传入一些其他配置项，例如日期时间格式、不同等级的日志颜色等。值得一提的是，`@fraqjs/color-log` 使用 [chalk](https://www.npmjs.com/package/chalk) 来实现日志着色，因此在配置项中你可以直接使用 chalk 支持的颜色和样式。
 
+### 使用多个日志处理器
+
+Fraq 提供了一个函数 `combineLogHandlers`，可以让你同时使用多个日志处理器：
+
+```typescript
+import { combineLogHandlers } from '@fraqjs/fraq';
+
+Context.create({
+  logHandler: combineLogHandlers(
+    createColoredLogHandler({ minLevel: 'info' }),
+    (message) => {
+      // 发送到远程服务器或者写入文件
+    },
+  ),
+});
+```
+
 ## 在插件中使用日志
 
 插件中也可以直接使用 `ctx.logger`。插件在 `apply` 方法中拿到的 logger 会自动使用插件的 `name` 作为 `module`，这样多个插件的日志就可以自然地区分开：
