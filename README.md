@@ -29,7 +29,8 @@ ctx.command(
 
 ```typescript
 session.reply(msg`
-The answer to Life, the ${seg.image("http://example.com/universe.png")}, and Everything is ${seg.face(42)}!
+The answer to Life, the ${seg.image("http://example.com/universe.png")}
+and Everything is ${seg.face(42)}!
 `);
 ```
 
