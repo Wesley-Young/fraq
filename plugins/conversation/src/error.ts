@@ -6,8 +6,8 @@ export class ConversationRejectionError extends Error {
 }
 
 export class ConversationAbortionError extends Error {
-  constructor() {
-    super('Conversation aborted');
+  constructor(reason: string) {
+    super(`Conversation aborted: ${reason}`);
     this.name = 'ConversationAbortionError';
   }
 }

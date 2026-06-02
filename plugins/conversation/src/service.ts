@@ -11,7 +11,7 @@ export interface ConversationContext<R> {
   session: Session;
   router: Router;
   done(result: R): void;
-  abort(): void;
+  abort(reason?: string): void;
 }
 
 export interface ConversationOptions {
@@ -97,7 +97,7 @@ export class ConversationService {
               session,
               router: active.router,
               done: (result) => this.resolve(active, result),
-              abort: () => this.abort(active),
+              abort: (reason) => this.abort(active, reason),
             }),
           )
           .catch((error) => {
@@ -151,8 +151,8 @@ export class ConversationService {
     this.settle(active, () => active.reject(error));
   }
 
-  private abort<R>(active: ActiveConversation<R>): void {
-    this.reject(active, new ConversationAbortionError());
+  private abort<R>(active: ActiveConversation<R>, reason?: string): void {
+    this.reject(active, new ConversationAbortionError(reason ?? 'conversation aborted'));
   }
 
   private settle<R>(active: ActiveConversation<R>, onSettled: () => void): void {
