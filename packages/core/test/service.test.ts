@@ -98,6 +98,66 @@ test('sorts plugins by service dependencies', async () => {
   assert.equal(ctx.resolve(BetaService).alpha, ctx.resolve(AlphaService));
 });
 
+test('injects existing services onto plugin context proxies', async () => {
+  const ctx = createTestContext();
+  const alpha = new AlphaService();
+  let injectedAlpha: AlphaService | undefined;
+
+  ctx.provide(AlphaService, alpha);
+  ctx.install(
+    definePlugin({
+      name: 'alpha-consumer',
+      inject: {
+        alpha: AlphaService,
+      },
+      apply(ctx) {
+        injectedAlpha = ctx.alpha;
+      },
+    }),
+  );
+
+  await ctx.start();
+
+  assert.equal(injectedAlpha, alpha);
+});
+
+test('uses injected services to order and apply plugin dependencies', async () => {
+  const ctx = createTestContext();
+  const calls: string[] = [];
+  let injectedAlpha: AlphaService | undefined;
+
+  ctx.install(
+    definePlugin({
+      name: 'beta-provider',
+      inject: {
+        alpha: AlphaService,
+      },
+      provides: [BetaService],
+      apply(ctx) {
+        calls.push('beta');
+        injectedAlpha = ctx.alpha;
+        ctx.provide(BetaService, new BetaService(ctx.alpha));
+      },
+    }),
+  );
+  ctx.install(
+    definePlugin({
+      name: 'alpha-provider',
+      provides: [AlphaService],
+      apply(ctx) {
+        calls.push('alpha');
+        ctx.provide(AlphaService, new AlphaService());
+      },
+    }),
+  );
+
+  await ctx.start();
+
+  assert.deepEqual(calls, ['alpha', 'beta']);
+  assert.equal(ctx.resolve(BetaService).alpha, injectedAlpha);
+  assert.equal(injectedAlpha, ctx.resolve(AlphaService));
+});
+
 test('preserves install order when plugins do not depend on each other', async () => {
   const ctx = createTestContext();
   const calls: string[] = [];

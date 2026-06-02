@@ -6,14 +6,14 @@ import type { Event, IncomingMessage } from '../protocol/types';
 import { Router, type Session } from '../routing/router';
 import type { Filter } from './filter';
 import { Logger, type LogHandler } from './logging';
-import type { ParameterList, Plugin } from './plugin';
+import type { Injection, ParameterList, Plugin } from './plugin';
 import { getServiceName, type ServiceClass } from './service';
 
 const DEFAULT_INITIAL_RECONNECT_DELAY_MS = 1_000;
 const DEFAULT_MAX_RECONNECT_DELAY_MS = 30_000;
 
 type InstalledPlugin = {
-  plugin: Plugin<ParameterList>;
+  plugin: Plugin<ParameterList, Injection | undefined>;
   args: ParameterList;
 };
 
@@ -90,8 +90,8 @@ export class Context {
     });
   }
 
-  install<T extends ParameterList>(plugin: Plugin<T>, ...args: T): void {
-    this.plugins.push({ plugin: plugin as Plugin<ParameterList>, args });
+  install<T extends ParameterList, I extends Injection | undefined>(plugin: Plugin<T, I>, ...args: T): void {
+    this.plugins.push({ plugin: plugin as Plugin<ParameterList, Injection | undefined>, args });
   }
 
   provide<T extends object>(service: ServiceClass<T>, instance: T): void {
@@ -164,7 +164,7 @@ export class Context {
 
   private sortPlugins(): InstalledPlugin[] {
     // validate that no service is provided by multiple plugins
-    const providers = new Map<ServiceClass, Plugin<ParameterList>>();
+    const providers = new Map<ServiceClass, Plugin<ParameterList, Injection | undefined>>();
     for (const { plugin } of this.plugins) {
       for (const service of plugin.provides ?? []) {
         const existingProvider = providers.get(service);
@@ -211,7 +211,7 @@ export class Context {
   }
 
   private createUnresolvablePluginError(pending: InstalledPlugin[], available: Set<ServiceClass>): Error {
-    const missingRequirements = new Map<ServiceClass, Plugin<ParameterList>[]>();
+    const missingRequirements = new Map<ServiceClass, Plugin<ParameterList, Injection | undefined>[]>();
     const pendingProviders = new Set<ServiceClass>();
     for (const { plugin } of pending) {
       for (const service of plugin.provides ?? []) {
@@ -240,13 +240,22 @@ export class Context {
     return new Error(`Unable to resolve plugin service dependencies: ${lines.join('; ')}.`);
   }
 
-  private createProxyContextForPlugin(plugin: Plugin<ParameterList>): Context {
+  private createProxyContextForPlugin(plugin: Plugin<ParameterList, Injection | undefined>): Context {
     const proxyLogger = new Logger((message) => this.logHandler?.(message), plugin.name);
+    let proxyInjections: undefined | Record<string, object>;
+    if (plugin.inject) {
+      proxyInjections = {};
+      for (const [key, service] of Object.entries(plugin.inject)) {
+        proxyInjections[key] = this.resolve(service);
+      }
+    }
     return new Proxy(this, {
       get(target, prop) {
         // proxy a logger for the plugin that prefixes messages with the plugin name
         if (prop === 'logger') {
           return proxyLogger;
+        } else if (proxyInjections && prop in proxyInjections) {
+          return proxyInjections[prop as keyof typeof proxyInjections];
         } else {
           return target[prop as keyof Context];
         }
