@@ -110,6 +110,16 @@ importers:
         specifier: workspace:^
         version: link:../core
 
+  plugins/conversation:
+    dependencies:
+      '@fraqjs/fraq':
+        specifier: workspace:^
+        version: link:../../packages/core
+    devDependencies:
+      '@fraqjs/mock':
+        specifier: workspace:^
+        version: link:../../packages/mock
+
 packages:
 
   '@alloc/quick-lru@5.2.0':
