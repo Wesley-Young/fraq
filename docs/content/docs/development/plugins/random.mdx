@@ -96,9 +96,3 @@ const newRandom = RandomService.fromState(state);
 // OR:
 const newRandom = ctx.random.clone();
 ```
-
-此外，也支持保持 `sequence` 不变的情况下，使用新的种子来创建一个新的 `RandomService` 实例：
-
-```typescript
-const newRandom = ctx.random.withSeed(12345);
-```
