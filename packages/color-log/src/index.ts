@@ -1,7 +1,5 @@
-import type { LogMessage } from '@fraqjs/fraq';
+import type { LogHandler, LogLevel } from '@fraqjs/fraq';
 import chalk, { type ChalkInstance } from 'chalk';
-
-type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 export interface ColoredLogHandlerOptions {
   minLevel: LogLevel;
@@ -29,7 +27,7 @@ const levelPriority: Record<LogLevel, number> = {
   error: 3,
 };
 
-export function createColoredLogHandler(options: ColoredLogHandlerOptions): (message: LogMessage) => void {
+export function createColoredLogHandler(options: ColoredLogHandlerOptions): LogHandler {
   const toLocaleStringOptions = options.dateTime?.options ?? {
     timeZone: 'Asia/Shanghai',
     year: 'numeric',
