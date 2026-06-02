@@ -158,6 +158,142 @@ test('uses injected services to order and apply plugin dependencies', async () =
   assert.equal(injectedAlpha, ctx.resolve(AlphaService));
 });
 
+test('orders plugins by optional service dependencies when providers are installed', async () => {
+  const ctx = createTestContext();
+  const calls: string[] = [];
+
+  ctx.install(
+    definePlugin({
+      name: 'alpha-consumer',
+      optionalRequires: [AlphaService],
+      apply() {
+        calls.push('consumer');
+      },
+    }),
+  );
+  ctx.install(
+    definePlugin({
+      name: 'alpha-provider',
+      provides: [AlphaService],
+      apply(ctx) {
+        calls.push('alpha');
+        ctx.provide(AlphaService, new AlphaService());
+      },
+    }),
+  );
+
+  await ctx.start();
+
+  assert.deepEqual(calls, ['alpha', 'consumer']);
+});
+
+test('does not require optional service dependencies without installed providers', async () => {
+  const ctx = createTestContext();
+  const calls: string[] = [];
+
+  ctx.install(
+    definePlugin({
+      name: 'alpha-consumer',
+      optionalRequires: [AlphaService],
+      apply(ctx) {
+        calls.push('consumer');
+        assert.equal(ctx.tryResolve(AlphaService), undefined);
+      },
+    }),
+  );
+
+  await ctx.start();
+
+  assert.deepEqual(calls, ['consumer']);
+});
+
+test('uses optional injections to order plugins when providers are installed', async () => {
+  const ctx = createTestContext();
+  const calls: string[] = [];
+  let injectedAlpha: AlphaService | undefined;
+
+  ctx.install(
+    definePlugin({
+      name: 'alpha-consumer',
+      optionalInject: {
+        alpha: AlphaService,
+      },
+      apply(ctx) {
+        calls.push('consumer');
+        injectedAlpha = ctx.alpha;
+      },
+    }),
+  );
+  ctx.install(
+    definePlugin({
+      name: 'alpha-provider',
+      provides: [AlphaService],
+      apply(ctx) {
+        calls.push('alpha');
+        ctx.provide(AlphaService, new AlphaService());
+      },
+    }),
+  );
+
+  await ctx.start();
+
+  assert.deepEqual(calls, ['alpha', 'consumer']);
+  assert.equal(injectedAlpha, ctx.resolve(AlphaService));
+});
+
+test('injects undefined for optional services without installed providers', async () => {
+  const ctx = createTestContext();
+  let injectedAlpha: AlphaService | undefined = new AlphaService();
+
+  ctx.install(
+    definePlugin({
+      name: 'alpha-consumer',
+      optionalInject: {
+        alpha: AlphaService,
+      },
+      apply(ctx) {
+        injectedAlpha = ctx.alpha;
+      },
+    }),
+  );
+
+  await ctx.start();
+
+  assert.equal(injectedAlpha, undefined);
+});
+
+test('breaks cycles between optional service dependencies', async () => {
+  const ctx = createTestContext();
+  const calls: string[] = [];
+
+  ctx.install(
+    definePlugin({
+      name: 'alpha-provider',
+      optionalRequires: [BetaService],
+      provides: [AlphaService],
+      apply(ctx) {
+        calls.push('alpha');
+        ctx.provide(AlphaService, new AlphaService());
+      },
+    }),
+  );
+  ctx.install(
+    definePlugin({
+      name: 'beta-provider',
+      optionalRequires: [AlphaService],
+      provides: [BetaService],
+      apply(ctx) {
+        calls.push('beta');
+        ctx.provide(BetaService, new BetaService(ctx.resolve(AlphaService)));
+      },
+    }),
+  );
+
+  await ctx.start();
+
+  assert.deepEqual(calls, ['alpha', 'beta']);
+});
+
 test('preserves install order when plugins do not depend on each other', async () => {
   const ctx = createTestContext();
   const calls: string[] = [];

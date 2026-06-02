@@ -13,7 +13,7 @@ const DEFAULT_INITIAL_RECONNECT_DELAY_MS = 1_000;
 const DEFAULT_MAX_RECONNECT_DELAY_MS = 30_000;
 
 type InstalledPlugin = {
-  plugin: Plugin<ParameterList, Injection | undefined>;
+  plugin: Plugin<ParameterList, Injection | undefined, Injection | undefined>;
   args: ParameterList;
 };
 
@@ -90,8 +90,11 @@ export class Context {
     });
   }
 
-  install<T extends ParameterList, I extends Injection | undefined>(plugin: Plugin<T, I>, ...args: T): void {
-    this.plugins.push({ plugin: plugin as Plugin<ParameterList, Injection | undefined>, args });
+  install<T extends ParameterList, I extends Injection | undefined, OI extends Injection | undefined>(
+    plugin: Plugin<T, I, OI>,
+    ...args: T
+  ): void {
+    this.plugins.push({ plugin: plugin as Plugin<ParameterList, Injection | undefined, Injection | undefined>, args });
   }
 
   provide<T extends object>(service: ServiceClass<T>, instance: T): void {
@@ -164,7 +167,7 @@ export class Context {
 
   private sortPlugins(): InstalledPlugin[] {
     // validate that no service is provided by multiple plugins
-    const providers = new Map<ServiceClass, Plugin<ParameterList, Injection | undefined>>();
+    const providers = new Map<ServiceClass, Plugin<ParameterList, Injection | undefined, Injection | undefined>>();
     for (const { plugin } of this.plugins) {
       for (const service of plugin.provides ?? []) {
         const existingProvider = providers.get(service);
@@ -185,9 +188,16 @@ export class Context {
     }
 
     while (pending.length > 0) {
-      const nextIndex = pending.findIndex(({ plugin }) =>
-        (plugin.requires ?? []).every((service) => available.has(service)),
+      const availableByPendingPlugins = this.collectPendingProvidedServices(pending);
+      const requiredReadyIndex = pending.findIndex(({ plugin }) =>
+        this.areRequiredServicesAvailable(plugin, available),
       );
+      const optionalReadyIndex = pending.findIndex(
+        ({ plugin }) =>
+          this.areRequiredServicesAvailable(plugin, available) &&
+          this.areOptionalServicesReady(plugin, available, availableByPendingPlugins),
+      );
+      const nextIndex = optionalReadyIndex === -1 ? requiredReadyIndex : optionalReadyIndex;
       if (nextIndex === -1) {
         throw this.createUnresolvablePluginError(pending, available);
       }
@@ -202,6 +212,37 @@ export class Context {
     return sorted;
   }
 
+  private collectPendingProvidedServices(pending: InstalledPlugin[]): Map<ServiceClass, InstalledPlugin> {
+    const providedServices = new Map<ServiceClass, InstalledPlugin>();
+    for (const installedPlugin of pending) {
+      for (const service of installedPlugin.plugin.provides ?? []) {
+        providedServices.set(service, installedPlugin);
+      }
+    }
+    return providedServices;
+  }
+
+  private areRequiredServicesAvailable(
+    plugin: Plugin<ParameterList, Injection | undefined, Injection | undefined>,
+    available: Set<ServiceClass>,
+  ): boolean {
+    return (plugin.requires ?? []).every((service) => available.has(service));
+  }
+
+  private areOptionalServicesReady(
+    plugin: Plugin<ParameterList, Injection | undefined, Injection | undefined>,
+    available: Set<ServiceClass>,
+    pendingProviders: Map<ServiceClass, InstalledPlugin>,
+  ): boolean {
+    return (plugin.optionalRequires ?? []).every((service) => {
+      if (available.has(service)) {
+        return true;
+      }
+      const pendingProvider = pendingProviders.get(service);
+      return pendingProvider === undefined || pendingProvider.plugin === plugin;
+    });
+  }
+
   private collectAvailableServices(): ServiceClass[] {
     const services = [...this.services.keys()];
     if (this.parent) {
@@ -211,7 +252,10 @@ export class Context {
   }
 
   private createUnresolvablePluginError(pending: InstalledPlugin[], available: Set<ServiceClass>): Error {
-    const missingRequirements = new Map<ServiceClass, Plugin<ParameterList, Injection | undefined>[]>();
+    const missingRequirements = new Map<
+      ServiceClass,
+      Plugin<ParameterList, Injection | undefined, Injection | undefined>[]
+    >();
     const pendingProviders = new Set<ServiceClass>();
     for (const { plugin } of pending) {
       for (const service of plugin.provides ?? []) {
@@ -240,13 +284,21 @@ export class Context {
     return new Error(`Unable to resolve plugin service dependencies: ${lines.join('; ')}.`);
   }
 
-  private createProxyContextForPlugin(plugin: Plugin<ParameterList, Injection | undefined>): Context {
+  private createProxyContextForPlugin(
+    plugin: Plugin<ParameterList, Injection | undefined, Injection | undefined>,
+  ): Context {
     const proxyLogger = new Logger((message) => this.logHandler?.(message), plugin.name);
-    let proxyInjections: undefined | Record<string, object>;
+    let proxyInjections: undefined | Record<string, object | undefined>;
     if (plugin.inject) {
       proxyInjections = {};
       for (const [key, service] of Object.entries(plugin.inject)) {
         proxyInjections[key] = this.resolve(service);
+      }
+    }
+    if (plugin.optionalInject) {
+      proxyInjections ??= {};
+      for (const [key, service] of Object.entries(plugin.optionalInject)) {
+        proxyInjections[key] = this.tryResolve(service);
       }
     }
     return new Proxy(this, {
