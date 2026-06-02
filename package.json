@@ -1,6 +1,7 @@
 {
   "type": "module",
   "scripts": {
+    "all:build": "pnpm --filter @fraqjs/* build",
     "docs:dev": "pnpm --filter fraq-docs dev"
   },
   "license": "MIT",
