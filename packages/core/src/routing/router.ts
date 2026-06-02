@@ -3,23 +3,23 @@ import type * as types from '../protocol/types';
 import type { Parameter } from './parameter';
 import { Tokenizer } from './tokenizer';
 
-type Pattern = Record<string, Parameter<any>>;
-type ParamsOf<P extends Pattern> = { [K in keyof P]: P[K] extends Parameter<infer T> ? T : never };
-type Handler<P extends Pattern> = (session: Session, params: ParamsOf<P>) => void | Promise<void>;
-type SessionPredicate = (session: Session) => boolean;
+export type Pattern = Record<string, Parameter<any>>;
+export type ParamsOf<P extends Pattern> = { [K in keyof P]: P[K] extends Parameter<infer T> ? T : never };
+export type Handler<P extends Pattern> = (session: Session, params: ParamsOf<P>) => void | Promise<void>;
+export type SessionPredicate = (session: Session) => boolean;
 
-interface Command {
+export interface Command {
   name: string;
   pattern: Pattern;
   handler: (session: Session, params: any) => void | Promise<void>;
 }
 
-interface RawPattern {
+export interface RawPattern {
   pattern: Pattern;
   handler: (session: Session, params: any) => void | Promise<void>;
 }
 
-type RouteEntry =
+export type RouteEntry =
   | { type: 'command'; command: Command }
   | { type: 'group'; name: string; router: Router }
   | { type: 'filter'; predicate: SessionPredicate; router: Router }
