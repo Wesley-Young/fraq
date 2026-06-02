@@ -1,4 +1,4 @@
-import { Context, type milky, msg, type Session } from '@fraqjs/fraq';
+import { Context, type milky, msg, param } from '@fraqjs/fraq';
 import { createMockMilkyClient } from '@fraqjs/mock';
 
 import { ConversationService } from '../src';
@@ -34,13 +34,6 @@ function friendMessage(textContent: string, options: { peerId?: number; senderId
   } satisfies milky.MessageReceiveEvent;
 }
 
-function session(raw: milky.IncomingMessage): Session {
-  return {
-    raw,
-    async reply() {},
-  };
-}
-
 async function tick(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 0));
 }
@@ -52,9 +45,8 @@ test('open resolves when a later message matches its temporary router', async ()
   let resultPromise: Promise<'origin' | 'answer' | null> | undefined;
   let answerSeq: number | undefined;
 
-  ctx.router.command('ask', {}, (session) => {
-    resultPromise = conversation.open<'origin' | 'answer'>(
-      session,
+  conversation.command('ask', {}, (_session, _params, { open }) => {
+    resultPromise = open<'origin' | 'answer'>(
       ({ router, done }) => {
         router.command('ask', {}, () => {
           done('origin');
@@ -90,55 +82,16 @@ test('open resolves when a later message matches its temporary router', async ()
   ]);
 });
 
-test('open calls onUnmatched and keeps waiting for a matching message', async () => {
-  const client = createMockMilkyClient();
-  const ctx = Context.fromClient(client);
-  const conversation = new ConversationService(ctx, { defaultTimeout: 1000 });
-  const unmatchedSeqs: number[] = [];
-  let resultPromise: Promise<boolean | null> | undefined;
-
-  ctx.router.command('ask', {}, (session) => {
-    resultPromise = conversation.open<boolean>(
-      session,
-      ({ router, done }) => {
-        router.command('yes', {}, () => {
-          done(true);
-        });
-      },
-      {
-        timeout: 1000,
-        onUnmatched(raw) {
-          unmatchedSeqs.push(raw.message_seq);
-        },
-      },
-    );
-  });
-
-  await ctx.start();
-  await client.emitEvent(friendMessage('ask', { seq: 1 }));
-  await tick();
-
-  assert.ok(resultPromise);
-
-  await client.emitEvent(friendMessage('maybe', { seq: 2 }));
-  await tick();
-  await client.emitEvent(friendMessage('yes', { seq: 3 }));
-
-  assert.deepEqual(unmatchedSeqs, [2]);
-  assert.equal(await resultPromise, true);
-});
-
 test('open tracks active conversations independently by sender, scene, and peer', async () => {
   const client = createMockMilkyClient();
   const ctx = Context.fromClient(client);
   const conversation = new ConversationService(ctx, { defaultTimeout: 1000 });
   const results = new Map<number, Promise<number | null>>();
 
-  ctx.router.command('ask', {}, (session) => {
+  conversation.command('ask', {}, (session, _params, { open }) => {
     results.set(
       session.raw.sender_id,
-      conversation.open<number>(
-        session,
+      open<number>(
         ({ router, done }) => {
           router.command('yes', {}, (answerSession) => {
             done(answerSession.raw.sender_id);
@@ -162,30 +115,86 @@ test('open tracks active conversations independently by sender, scene, and peer'
 });
 
 test('open resolves null when the conversation times out', async () => {
-  const ctx = Context.fromClient(createMockMilkyClient());
+  const client = createMockMilkyClient();
+  const ctx = Context.fromClient(client);
   const conversation = new ConversationService(ctx, { defaultTimeout: 1 });
-  const result = await conversation.open(session(friendMessage('ask').data), ({ router }) => {
-    router.command('yes', {}, () => {});
+  let resultPromise: Promise<boolean | null> | undefined;
+
+  conversation.command('ask', {}, (_session, _params, { open }) => {
+    resultPromise = open<boolean>(({ router }) => {
+      router.command('yes', {}, () => {});
+    });
   });
+
+  await ctx.start();
+  await client.emitEvent(friendMessage('ask'));
+  await tick();
+
+  assert.ok(resultPromise);
+  const result = await resultPromise;
 
   assert.equal(result, null);
 });
 
 test('requires defaultTimeout and timeout to be positive finite numbers', async () => {
-  const ctx = Context.fromClient(createMockMilkyClient());
+  const client = createMockMilkyClient();
+  const ctx = Context.fromClient(client);
 
   assert.throws(() => new ConversationService(ctx, { defaultTimeout: 0 }), /defaultTimeout/);
 
   const conversation = new ConversationService(ctx);
-  await assert.rejects(
-    () =>
-      conversation.open(
-        session(friendMessage('ask').data),
-        ({ router }) => {
-          router.command('yes', {}, () => {});
-        },
-        { timeout: Number.POSITIVE_INFINITY },
-      ),
-    /timeout/,
-  );
+  let resultPromise: Promise<boolean | null> | undefined;
+
+  conversation.command('ask', {}, (_session, _params, { open }) => {
+    resultPromise = open<boolean>(
+      ({ router }) => {
+        router.command('yes', {}, () => {});
+      },
+      { timeout: Number.POSITIVE_INFINITY },
+    );
+    resultPromise.catch(() => {});
+  });
+
+  await ctx.start();
+  await client.emitEvent(friendMessage('ask'));
+  await tick();
+
+  assert.ok(resultPromise);
+  await assert.rejects(resultPromise, /timeout/);
+});
+
+test('active conversation handles a repeated triggering command without dispatching the command again', async () => {
+  const client = createMockMilkyClient();
+  const ctx = Context.fromClient(client);
+  const conversation = new ConversationService(ctx, { defaultTimeout: 1000 });
+  let prompts = 0;
+  let resultPromise: Promise<string | null> | undefined;
+
+  conversation.command('天气', {}, async (session, _params, { open }) => {
+    prompts += 1;
+    await session.reply(msg`请输入城市`);
+    resultPromise = open<string>(({ router, done }) => {
+      router.rawPattern({ city: param.greedy() }, (_answerSession, { city }) => {
+        done(city);
+      });
+    });
+  });
+
+  await ctx.start();
+  await client.emitEvent(friendMessage('天气', { seq: 1 }));
+  await tick();
+  await client.emitEvent(friendMessage('天气', { seq: 2 }));
+
+  assert.ok(resultPromise);
+  assert.equal(await resultPromise, '天气');
+  assert.equal(prompts, 1);
+  assert.deepEqual(client.apiCalls, [
+    {
+      endpoint: 'send_private_message',
+      params: {
+        user_id: 1,
+        message: msg`请输入城市`,
+      },
+    },
+  ]);
 });
