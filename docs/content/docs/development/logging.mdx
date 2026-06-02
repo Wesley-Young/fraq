@@ -57,15 +57,7 @@ ctx.start();
 
 <NpmBadge packageName="@fraqjs/color-log" />
 
-Fraq 提供了一个官方的日志处理插件 `@fraqjs/color-log`，它可以让你的日志在终端输出时带上颜色，方便区分不同级别和模块的日志。你可以通过以下命令安装它：
-
-```bash
-npm install @fraqjs/color-log
-# or
-yarn add @fraqjs/color-log
-# or
-pnpm add @fraqjs/color-log
-```
+Fraq 提供了一个官方的日志处理工具 `@fraqjs/color-log`，它可以让你的日志在终端输出时带上颜色，方便阅读和区分不同级别的日志。你可以使用包管理器安装它。
 
 然后在创建 `Context` 的时候使用它：
 
@@ -73,11 +65,13 @@ pnpm add @fraqjs/color-log
 import { createColoredLogHandler } from '@fraqjs/color-log';
 
 Context.create({
-  logHandler: createColoredLogHandler(),
+  logHandler: createColoredLogHandler({
+    minLevel: 'info', // 只输出 info 及以上级别的日志
+  }),
 });
 ```
 
-你也可以在调用 `createColoredLogHandler` 的时候传入一些配置项，例如日期时间格式、不同等级的日志颜色等。值得一提的是，`@fraqjs/color-log` 使用 [chalk](https://www.npmjs.com/package/chalk) 来实现日志着色，因此在配置项中你可以直接使用 chalk 支持的颜色和样式。
+你也可以传入一些其他配置项，例如日期时间格式、不同等级的日志颜色等。值得一提的是，`@fraqjs/color-log` 使用 [chalk](https://www.npmjs.com/package/chalk) 来实现日志着色，因此在配置项中你可以直接使用 chalk 支持的颜色和样式。
 
 ## 在插件中使用日志
 
