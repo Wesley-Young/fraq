@@ -13,18 +13,6 @@ test('same seed produces the same uint32 sequence', () => {
   );
 });
 
-test('withSeed returns an independent seeded generator', () => {
-  const base = new RandomService({ seed: 7 });
-  const seeded = base.withSeed(99);
-  const direct = new RandomService({ seed: 99 });
-
-  assert.deepEqual(
-    [seeded.uint32(), seeded.uint32(), seeded.uint32()],
-    [direct.uint32(), direct.uint32(), direct.uint32()],
-  );
-  assert.notEqual(base.uint32(), seeded.uint32());
-});
-
 test('float returns a value in the half-open unit interval', () => {
   const random = new RandomService({ seed: 123 });
 
@@ -182,7 +170,6 @@ test('fromState resumes the exported generator state', () => {
 test('rejects non-safe integer seeds and sequences', () => {
   assert.throws(() => new RandomService({ seed: Number.NaN }), /seed/);
   assert.throws(() => new RandomService({ sequence: 1.5 }), /sequence/);
-  assert.throws(() => new RandomService().withSeed(Number.MAX_SAFE_INTEGER + 1), /seed/);
 });
 
 test('rejects invalid business api arguments', () => {

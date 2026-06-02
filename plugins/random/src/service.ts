@@ -184,13 +184,6 @@ export class RandomService {
     return this.generator.exportState();
   }
 
-  withSeed(seed: number): RandomService {
-    return new RandomService({
-      seed,
-      sequence: this.sequence,
-    });
-  }
-
   static fromState(state: RandomState): RandomService {
     return RandomService.fromGenerator(new PCG32(state), Number((state.increment >> 1n) & ((1n << 63n) - 1n)));
   }
