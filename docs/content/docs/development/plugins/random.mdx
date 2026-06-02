@@ -1,0 +1,104 @@
+---
+title: '@fraqjs/plugin-random'
+---
+
+<NpmBadge packageName="@fraqjs/plugin-random" />
+
+`@fraqjs/plugin-random` 提供了基于 [PCG32 算法](https://zh.wikipedia.org/wiki/%E7%BD%AE%E6%8D%A2%E5%90%8C%E4%BD%99%E7%94%9F%E6%88%90%E5%99%A8)的伪随机数生成器及其封装，适用于需要随机数的应用场景。
+
+## 安装与配置
+
+将插件添加至 `dependencies`，然后在创建 `Context` 时引入并配置插件：
+
+```typescript
+import { RandomPlugin } from '@fraqjs/plugin-random';
+
+ctx.install(RandomPlugin, {
+  // 在这里传入 RandomService 的配置选项
+});
+```
+
+`RandomPlugin` 有如下配置项：
+
+- `seed`：随机数生成器的全局种子，默认情况下会调用 `Math.random()` 来生成一个随机种子。
+- `sequence`：随机数生成器的全局序列，默认值为 1。
+
+有关上述配置项的详细信息，请参阅 PCG32 算法的相关文档。
+
+如果你是插件开发者，请将本插件添加到项目的 `peerDependencies` 中，并在自己的插件中声明依赖：
+
+```typescript
+import { RandomService } from '@fraqjs/plugin-random';
+
+definePlugin({
+  name: 'my-plugin',
+  inject: {
+    random: RandomService,
+  },
+  apply(ctx) {
+    // 使用 ctx.random 来访问 RandomService
+  },
+});
+```
+
+## 基本用法
+
+可以调用 `ctx.random` 来访问 `RandomService` 实例，并使用它来生成随机数和随机布尔值：
+
+```typescript
+ctx.random.uint32(); // 返回一个 [0, 2^32) 范围内的随机无符号整数
+ctx.random.float(); // 返回一个 [0, 1) 范围内的随机 32 位浮点数
+ctx.random.bool(0.1); // 以 10% 的概率返回 true，90% 的概率返回 false
+ctx.random.int(10); // 返回一个 [0, 10) 范围内的随机整数
+ctx.random.int(5, 15); // 返回一个 [5, 15) 范围内的随机整数
+ctx.random.range(5, 15); // 返回一个 [5, 15] 范围内的随机整数（闭区间）
+```
+
+## 集合操作
+
+`RandomService` 还提供了一些基于随机数生成的集合操作方法：
+
+```typescript
+ctx.random.pick(['Ras', 'Chiffon', 'Salt']);
+// 从数组中等概率随机选择一个元素
+
+ctx.random.shuffle(['Ras', 'Chiffon', 'Salt']);
+// 返回打乱顺序后的新数组，不修改原数组
+
+ctx.random.sample(['Ras', 'Chiffon', 'Salt', 'Milk', 'Shama', 'Otohime'], 2);
+// 从数组中随机选择 2 个元素，返回新数组
+```
+
+## 赋予权重
+
+`RandomService` 的方法还支持为元素赋予权重，以实现非均匀的随机选择：
+
+```typescript
+ctx.random.weightedIndex([1, 3, 5]);
+// 根据权重返回一个索引，0 的概率为 1/9，1 的概率为 3/9，2 的概率为 5/9
+
+const options = ['Ras', 'Chiffon', 'Salt'];
+const weights = [1, 3, 5];
+const elem = options[ctx.random.weightedIndex(weights)];
+// 根据权重随机选择一个元素，'Ras' 的概率为 1/9，'Chiffon' 的概率为 3/9，'Salt' 的概率为 5/9
+
+// OR:
+const elem = ctx.random.weightedPick(options, (index) => weights[index]);
+```
+
+## 状态管理
+
+`RandomService` 支持导出和导入状态，或直接克隆一个新的实例，这对于需要在不同上下文中保持随机数生成器状态一致的场景非常有用：
+
+```typescript
+const state = ctx.random.exportState();
+const newRandom = RandomService.fromState(state);
+// OR:
+const newRandom = ctx.random.clone();
+```
+
+此外，也支持保持 `sequence` 不变的情况下，使用新的种子来创建一个新的 `RandomService` 实例：
+
+```typescript
+const newRandom = ctx.random.withSeed(12345);
+```
