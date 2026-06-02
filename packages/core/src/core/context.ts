@@ -129,6 +129,35 @@ export class Context {
     return subContext;
   }
 
+  createSession(message: IncomingMessage): Session {
+    return {
+      raw: message,
+      reply: async (segments) => {
+        try {
+          switch (message.message_scene) {
+            case 'friend':
+              await this.client.send_private_message({
+                user_id: message.peer_id,
+                message: segments,
+              });
+              break;
+            case 'group':
+              await this.client.send_group_message({
+                group_id: message.peer_id,
+                message: segments,
+              });
+              break;
+          }
+        } catch (error) {
+          this.logger.error(
+            `Error sending reply (source msg: scene=${message.message_scene} peer=${message.peer_id} sender=${message.sender_id} seq=${message.message_seq})`,
+            error,
+          );
+        }
+      },
+    };
+  }
+
   async start(): Promise<void> {
     if (this.isStarted) {
       return;
@@ -340,35 +369,6 @@ export class Context {
       reconnectDelay = Math.min(reconnectDelay * 2, this.maxReconnectDelayMs);
       reconnectAttempt += 1;
     }
-  }
-
-  private createSession(message: IncomingMessage): Session {
-    return {
-      raw: message,
-      reply: async (segments) => {
-        try {
-          switch (message.message_scene) {
-            case 'friend':
-              await this.client.send_private_message({
-                user_id: message.peer_id,
-                message: segments,
-              });
-              break;
-            case 'group':
-              await this.client.send_group_message({
-                group_id: message.peer_id,
-                message: segments,
-              });
-              break;
-          }
-        } catch (error) {
-          this.logger.error(
-            `Error sending reply (source msg: scene=${message.message_scene} peer=${message.peer_id} sender=${message.sender_id} seq=${message.message_seq})`,
-            error,
-          );
-        }
-      },
-    };
   }
 
   static fromUrl(baseUrl: string | URL, options?: ContextOptions & ContextUrlOptions): Context {
