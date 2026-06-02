@@ -2,8 +2,6 @@
 title: 定义指令
 ---
 
-import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
-
 在一开始的例子中，我们已经见过了一个简单的指令定义：
 
 ```typescript
@@ -172,34 +170,26 @@ ctx.router
   );
 ```
 
-定义指令重载时需要格外小心，确保不同的参数模式之间没有歧义，否则可能会导致某些输入无法正确匹配到对应的处理函数。
-
 {/* prettier-ignore */}
-<Accordions>
-  <Accordion title="一个错误的案例">
-    下面是一个引起歧义的案例：
+<Callout type="warning">
+定义指令重载时需要格外小心，确保不同的参数模式之间没有歧义，否则可能会导致某些输入无法正确匹配到对应的处理函数。下面是一个引起歧义的案例：
 
-    ```typescript
-    ctx.router
-      .group('test')
-      .rawPattern(
-        { arg: param.str() },
-        (session, { arg }) => {
-          // Handle test with string argument
-        },
-      )
-      .rawPattern(
-        { arg: param.num() },
-        (session, { arg }) => {
-          // Handle test with number argument
-        },
-      );
-    ```
+```typescript
+ctx.router
+  .group('test')
+  .rawPattern({ arg: param.str() }, (session, { arg }) => {
+    // Handle test with string argument
+  })
+  .rawPattern({ arg: param.num() }, (session, { arg }) => {
+    // Handle test with number argument
+  });
+```
 
-    在上面的例子中，如果用户输入 `test 123`，这个输入既符合第一个模式（因为数字也可以被解析为字符串），又符合第二个模式（因为它是一个数字）；但匹配字符串的模式先定义，所以它会被优先匹配到，导致数字参数的处理函数永远无法被调用。
+在上面的例子中，如果用户输入 `test 123`，这个输入既符合第一个模式（因为数字也可以被解析为字符串），又符合第二个模式（因为它是一个数字）；但匹配字符串的模式先定义，所以它会被优先匹配到，导致数字参数的处理函数永远无法被调用。
 
-  </Accordion>
-</Accordions>
+关于命令匹配的具体规则，请参考[”深入了解“中的介绍](./digging/router.mdx#路由规则)。
+
+</Callout>
 {/* prettier-ignore-end */}
 
 ## `Session` 对象
@@ -229,6 +219,6 @@ adminRouter.command('admincmd', { arg: param.str() }, (session, { arg }) => {
 
 {/* prettier-ignore */}
 <Callout>
-  对于插件开发者，非必要情况下不应该主动调用 `ctx.router.filter` 来控制指令的触发权限，因为这会导致指令的可见性和触发条件不能被插件部署方所预期。更好的做法是将过滤指令的任务交给插件部署方，由插件部署方使用 [`ctx.fork`](./context.mdx#事件过滤) 来创建新的 `Context` 实例，并在新的实例上安装插件来实现指令的权限控制。
+  对于插件开发者，非必要情况下不应该主动调用 `ctx.router.filter` 来控制指令的触发权限，因为这会导致指令的可见性和触发条件不能被插件部署方所预期。更好的做法是将过滤指令的任务交给插件部署方，由插件部署方使用 [`ctx.fork`](./digging/context.mdx#事件过滤) 来创建新的 `Context` 实例，并在新的实例上安装插件来实现指令的权限控制。
 </Callout>
 {/* prettier-ignore-end */}

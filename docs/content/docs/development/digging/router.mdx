@@ -1,0 +1,62 @@
+---
+title: 命令路由 (Router)
+---
+
+在此前的例子中，我们已经多次使用过 `ctx.router`：
+
+- `ctx.router.command` 用于定义一个带名称的指令。
+- `ctx.router.rawPattern` 用于直接从用户输入开头进行模式匹配。
+- `ctx.router.group` 用于定义指令组和子指令 / 模式。
+- `ctx.router.filter` 用于让一组路由只在特定会话条件下生效。
+
+这些方法最终都在做同一件事：向当前 `Router` 中添加一条路由规则。当 `Context` 收到 `message_receive` 事件时，它会把消息交给自己的 `router`，由 `router` 按照定义顺序寻找第一个完整匹配的分支，并调用这个分支对应的处理函数。
+
+## 一切消息皆 token
+
+要了解 `Router` 的工作原理，首先要引入 token 的概念。在 `Context` 调用 `router.dispatch` 之后，`Router` 会将消息传入一个分词器（Tokenizer），然后对消息进行流式读取。分词器会将消息按照 token 的顺序进行读取；分词器也支持回退，`Router` 只要在路由时记录当前的位置，就可以在后续 token 不匹配时回退到这个位置继续尝试其他分支。
+
+token 分两大类：文本 token 和消息段 token。Router 在遇到文本（text）消息段时，会寻找第一个非空字符作为 token 的起始位置，然后把从这个位置开始的连续非空字符作为一个文本 token；在遇到其他类型的消息段时，会把整个消息段作为一个消息段 token。
+
+此外，分词器还支持一种特殊的读取模式，即贪婪读取（greedy）。这种读取模式要求分词器当前的位置处于最后一个消息段，并且该消息段是文本消息段。进行贪婪读取时，分词器会把从下一个 token 开始直到消息末尾的所有文本都作为一个 token 进行读取，在不匹配时同样支持回退。
+
+## 路由规则
+
+正如上面所说，路由规则分如下四大类：
+
+- `command`：先按照指令名称匹配一个 token，再按照给定的参数模式匹配后续 token。
+- `rawPattern`：直接从开头按照给定的参数模式匹配 token。
+- `group`：先按照指令名称匹配一个 token，再按照给定的子路由规则匹配后续 token。
+- `filter`：先按照给定的过滤函数判断当前会话是否满足条件，再按照给定的子路由规则匹配消息。
+
+`Router` 会按照定义的顺序依次尝试这些规则，直到找到一个完整匹配（即匹配到 Pattern 的最后一个元素时恰好到消息末尾）的规则为止。如果某个规则的指令名称匹配但参数不匹配，或者在匹配完 Pattern 之后消息中还剩下没有被消费的 token，`Router` 会继续尝试后面的规则。
+
+假设我们定义了如下路由规则：
+
+```
+[command] hello <name: string> <age: number>
+[rawPattern] <reference: reply segment> <fetch: literal('fetch')>
+[filter] (session) => session.raw.sender_id === 10001
+  [command] secret
+[group] teleport
+  [rawPattern] <location: string> <delay: number>
+  [rawPattern] <location: string>
+  [command] home
+```
+
+对于某个 ID 为 10001 的用户输入 `teleport LocationA`，`Router` 会进行如下尝试：
+
+- `[command] hello <name: string> <age: number>`：第一个 token `teleport` 与 `hello` 不匹配，尝试失败。
+- `[rawPattern] <reference: reply segment> <fetch: literal('fetch')>`：第一个 token `teleport` 不是 `reply` 消息段，尝试失败。
+- `[filter] (session) => session.raw.sender_id === 10001`：过滤函数返回 `true`，继续尝试子规则。
+  - `[command] secret`：第一个 token `teleport` 与 `secret` 不匹配，尝试失败。
+- `[group] teleport`：第一个 token `teleport` 与 `teleport` 匹配，**消费一个 token**，继续尝试子规则。
+  - `[rawPattern] <location: string> <delay: number>`：第二个 token `LocationA` 与 `<location: string>` 匹配，继续尝试后续 token，但消息中没有更多 token 了，尝试失败。
+  - `[rawPattern] <location: string>`：第二个 token `LocationA` 与 `<location: string>` 匹配，且消息中没有更多 token 了，尝试成功，调用对应的处理函数，后续的规则不再尝试。
+
+## 白盒函数
+
+`Router` 对于命令处理而言是一个黑盒，但对于插件开发者而言，有时我们需要获取一些路由规则的信息，因此 `Router` 提供了下面的白盒函数：
+
+- `router.routes`：返回当前 `Router` 中定义的所有路由规则的名称、参数和处理函数，但不包括 `group` 和 `filter` 规则下的子规则。
+- `router.branches`：输入一个 `Session`，返回这个 `Session` 有可能触发的所有 `command` 和 `rawPattern` 规则的名称、参数和处理函数，包括 `group` 和 `filter` 规则下的规则。这个函数不会尝试进行模式匹配，只在过滤函数不满足条件时排除掉对应的规则分支。
+- `router.match`：输入一个 `Session` 和消息，尝试对消息内容进行匹配**但不触发处理函数**，返回匹配到的第一条 `command` 或 `rawPattern` 规则的名称、参数和处理函数。如果没有匹配到任何规则，则返回 `undefined`。
