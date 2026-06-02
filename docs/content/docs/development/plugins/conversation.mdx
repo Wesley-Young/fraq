@@ -52,39 +52,47 @@ definePlugin({
 机器人: 北京今天晴，最高气温...
 ```
 
-传统的 `ctx.router.command` 遵循单纯的命令-响应模式，不适合处理多轮对话。但使用 `ConversationService`，你可以轻松实现这个场景：
+传统的 `ctx.router.command` 遵循单纯的命令-响应模式，不适合处理多轮对话。但使用 `ctx.conversation.command`，我们可以轻松地实现这个功能。与前者不同，`ctx.conversation.command` 的回调函数接受第三个参数 `scope`，它包含一个函数 `open`，我们可以通过它来启动一个新的会话：
 
 ```typescript
-ctx.router.command('天气', {}, async (session) => {
+ctx.conversation.command('天气', {}, async (session, _, { open }) => {
   await session.reply(msg`你想查询哪个城市的天气呢？`);
-  const city = await ctx.conversation.open<string>(
-    session,
-    ({ router, done }) => {
-      router.rawPattern({ city: param.str() }, async (_, { city }) => {
-        done(city);
-      });
-    },
-  ); // city: string | null
+
+  const city = await open<string>(({ router, done }) => {
+    router.rawPattern({ city: param.str() }, async (_, { city }) => {
+      done(city);
+    });
+  }); // city: string | null
   if (city === null) {
     return;
   }
+
   const weatherInfo = await getWeatherForCity(city);
   await session.reply(msg`${weatherInfo}`);
 });
 ```
 
-在这个例子中，插件接收到 “天气” 这个输入时，会先回复一个问题，然后通过 `ctx.conversation.open` 启动一个新的会话。`open<R>` 函数传入的回调函数接受一个 `ConversationContext<R>` 对象，包含以下属性：
+在这个例子中，插件接收到 “天气” 这个输入时，会先回复一个问题，然后通过 `open` 启动一个新的会话。`open<R>` 函数传入的回调函数接受一个 `ConversationContext<R>` 对象，包含以下属性：
 
-- `session`：当前会话的 `Session` 对象，与第一个参数传入的 `session` 是同一个实例。
 - `router`：一个新的 `Router` 实例，用于在会话中定义输入模式和对应的处理函数。在这个 `Router` 中定义的路由只会在当前会话中生效，不会影响全局的 `ctx.router`。此外，传入这个 `router` 的回调函数的 `session` 中，`raw` 字段会被替换为触发当前路由的原始输入内容，其余字段与你传入 `open` 的 `session` 相同。
 - `done(result: R)`：一个函数，用于结束会话并返回结果。当你调用 `done` 时，`ctx.conversation.open` 返回的 Promise 会被 resolved，值就是你传入 `done` 的参数。
 - `abort(reason?: string)`：一个函数，用于主动终止会话，并且可以传入一个字符串作为终止原因。当你调用 `abort` 时，`ctx.conversation.open` 返回的 Promise 会被 rejected，错误类型是 `ConversationAbortionError`，错误消息包含你传入的终止原因。
 
 我们在代码中使用了其中的 `router` 来定义了一个 `rawPattern` 路由，这个路由会匹配用户的任意输入，并且将输入内容作为字符串参数 `city` 传入回调函数。当用户输入符合这个模式时，我们调用 `done(city)` 来结束会话，并将用户输入的城市名称作为结果返回。
 
+### 可选配置
+
+`open` 函数还可以接受一个可选的配置对象，支持以下配置项：
+
+- `timeout`：会话的超时时间，单位是毫秒。默认值为插件配置中的 `defaultTimeout`。如果配置了这个值，它将会覆盖插件配置中的 `defaultTimeout`，成为当前会话的超时时间。
+
 ## 处理特殊情况
 
+### 超时情况
+
 从代码中可以看出，`open` 方法有可能返回 `null`，这表示会话超出了配置的等待时间限制，你需要显式地检查这种情况来处理超时。代码中的处理是直接 `return`，即不再执行后续逻辑；但你也可以发送一个提示消息，或使用 `while` 循环来重新发起会话等。
+
+### 会话冲突情况
 
 `open` 方法还可能抛出两种错误：
 
