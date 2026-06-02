@@ -25,6 +25,14 @@ export type RouteEntry =
   | { type: 'filter'; predicate: SessionPredicate; router: Router }
   | { type: 'rawPattern'; rawPattern: RawPattern };
 
+export type RouteBranch =
+  | { type: 'command'; path: string[]; command: Command }
+  | { type: 'rawPattern'; path: string[]; rawPattern: RawPattern };
+
+export type RouteMatchResult =
+  | { type: 'command'; path: string[]; command: Command; params: any }
+  | { type: 'rawPattern'; path: string[]; rawPattern: RawPattern; params: any };
+
 export interface Session {
   raw: types.IncomingMessage;
   reply(segments: types.OutgoingSegment_ZodInput[]): Promise<void>;
@@ -73,76 +81,135 @@ export class Router {
     return router;
   }
 
-  async dispatch(session: Session, message: types.IncomingMessage): Promise<boolean> {
-    const tokenizer = new Tokenizer(message.segments);
-    return await this.process(session, tokenizer);
+  routes(): RouteEntry[] {
+    return this.entries;
   }
 
-  private async process(session: Session, tokenizer: Tokenizer): Promise<boolean> {
+  branches(session: Session): RouteBranch[] {
+    return this.branchesFrom(session, []);
+  }
+
+  match(session: Session, message: types.IncomingMessage): RouteMatchResult | undefined {
+    const tokenizer = new Tokenizer(message.segments);
+    return this.matchFrom(session, tokenizer, []);
+  }
+
+  async dispatch(session: Session, message: types.IncomingMessage): Promise<boolean> {
+    const match = this.match(session, message);
+    if (match === undefined) {
+      return false;
+    }
+    switch (match.type) {
+      case 'command':
+        await match.command.handler(session, match.params);
+        break;
+      case 'rawPattern':
+        await match.rawPattern.handler(session, match.params);
+        break;
+    }
+    return true;
+  }
+
+  private matchFrom(session: Session, tokenizer: Tokenizer, path: string[]): RouteMatchResult | undefined {
     const initialState = tokenizer.getState();
 
     for (const entry of this.entries) {
       tokenizer.setState(initialState);
 
-      if (await this.processEntry(entry, session, tokenizer)) {
-        return true;
+      const match = this.matchEntry(entry, session, tokenizer, path);
+      if (match !== undefined) {
+        return match;
       }
     }
 
     tokenizer.setState(initialState);
-    return false;
+    return undefined;
   }
 
-  private async processEntry(entry: RouteEntry, session: Session, tokenizer: Tokenizer): Promise<boolean> {
+  private matchEntry(
+    entry: RouteEntry,
+    session: Session,
+    tokenizer: Tokenizer,
+    path: string[],
+  ): RouteMatchResult | undefined {
     switch (entry.type) {
       case 'command':
-        return await this.processCommand(entry.command, session, tokenizer);
+        return this.matchCommand(entry.command, tokenizer, path);
       case 'group':
-        return await this.processGroup(entry.name, entry.router, session, tokenizer);
+        return this.matchGroup(entry.name, entry.router, session, tokenizer, path);
       case 'filter':
         if (entry.predicate(session) !== true) {
-          return false;
+          return undefined;
         }
-        return await entry.router.process(session, tokenizer);
+        return entry.router.matchFrom(session, tokenizer, path);
       case 'rawPattern':
-        return await this.processRawPattern(entry.rawPattern, session, tokenizer);
+        return this.matchRawPattern(entry.rawPattern, tokenizer, path);
     }
   }
 
-  private async processCommand(command: Command, session: Session, tokenizer: Tokenizer): Promise<boolean> {
+  private matchCommand(command: Command, tokenizer: Tokenizer, path: string[]): RouteMatchResult | undefined {
     const token = tokenizer.peek();
     if (typeof token !== 'string' || token !== command.name) {
-      return false;
+      return undefined;
     }
 
     tokenizer.next();
     const params = this.capturePattern(command.pattern, tokenizer);
     if (params === undefined || tokenizer.hasNext()) {
-      return false;
+      return undefined;
     }
 
-    await command.handler(session, params);
-    return true;
+    return { type: 'command', path: [...path], command, params };
   }
 
-  private async processGroup(name: string, router: Router, session: Session, tokenizer: Tokenizer): Promise<boolean> {
+  private matchGroup(
+    name: string,
+    router: Router,
+    session: Session,
+    tokenizer: Tokenizer,
+    path: string[],
+  ): RouteMatchResult | undefined {
     const token = tokenizer.peek();
     if (typeof token !== 'string' || token !== name) {
-      return false;
+      return undefined;
     }
 
     tokenizer.next();
-    return await router.process(session, tokenizer);
+    return router.matchFrom(session, tokenizer, [...path, name]);
   }
 
-  private async processRawPattern(rawPattern: RawPattern, session: Session, tokenizer: Tokenizer): Promise<boolean> {
+  private matchRawPattern(rawPattern: RawPattern, tokenizer: Tokenizer, path: string[]): RouteMatchResult | undefined {
     const params = this.capturePattern(rawPattern.pattern, tokenizer);
     if (params === undefined || tokenizer.hasNext()) {
-      return false;
+      return undefined;
     }
 
-    await rawPattern.handler(session, params);
-    return true;
+    return { type: 'rawPattern', path: [...path], rawPattern, params };
+  }
+
+  private branchesFrom(session: Session, path: string[]): RouteBranch[] {
+    const branches: RouteBranch[] = [];
+
+    for (const entry of this.entries) {
+      switch (entry.type) {
+        case 'command':
+          branches.push({ type: 'command', path: [...path], command: entry.command });
+          break;
+        case 'group':
+          branches.push(...entry.router.branchesFrom(session, [...path, entry.name]));
+          break;
+        case 'filter':
+          if (entry.predicate(session) === true) {
+            branches.push(...entry.router.branchesFrom(session, path));
+          }
+          break;
+        case 'rawPattern':
+          branches.push({ type: 'rawPattern', path: [...path], rawPattern: entry.rawPattern });
+          break;
+      }
+    }
+
+    return branches;
   }
 
   private capturePattern<P extends Pattern>(pattern: P, tokenizer: Tokenizer): ParamsOf<P> | undefined {

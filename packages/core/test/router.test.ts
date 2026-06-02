@@ -117,6 +117,41 @@ test('dispatches grouped commands after matching the group prefix', async () => 
   assert.equal(captured, 42);
 });
 
+test('matches the first dispatchable branch without running its handler', () => {
+  const router = new Router();
+  const calls: string[] = [];
+
+  router.command('pick', { value: param.num() }, () => {
+    calls.push('number');
+  });
+  router.command('pick', { value: param.str() }, () => {
+    calls.push('string');
+  });
+
+  const raw = message([text('pick blue')]);
+  const match = router.match(session(raw), raw);
+
+  assert.equal(match?.type, 'command');
+  assert.equal(match.command.name, 'pick');
+  assert.deepEqual(match.path, []);
+  assert.deepEqual(match.params, { value: 'blue' });
+  assert.deepEqual(calls, []);
+});
+
+test('matches grouped branches with their group path', () => {
+  const router = new Router();
+
+  router.group('admin').command('ban', { userId: param.num() }, () => {});
+
+  const raw = message([text('admin ban 42')]);
+  const match = router.match(session(raw), raw);
+
+  assert.equal(match?.type, 'command');
+  assert.equal(match.command.name, 'ban');
+  assert.deepEqual(match.path, ['admin']);
+  assert.deepEqual(match.params, { userId: 42 });
+});
+
 test('returns the same router for repeated group names', () => {
   const router = new Router();
 
@@ -139,6 +174,32 @@ test('runs filtered routes only when the predicate accepts the session', async (
   assert.equal(await router.dispatch(session(rejected), rejected), false);
   assert.equal(await router.dispatch(session(accepted), accepted), true);
   assert.deepEqual(calls, ['secret']);
+});
+
+test('lists branches that can pass session filters', () => {
+  const router = new Router();
+
+  router.command('ping', {}, () => {});
+  router.group('admin').command('ban', { userId: param.num() }, () => {});
+  router.filter((session) => session.raw.sender_id === 7).command('secret', {}, () => {});
+  router.filter((session) => session.raw.sender_id === 8).rawPattern({ content: param.greedy() }, () => {});
+
+  const raw = message([text('anything')]);
+  const branches = router.branches(session({ ...raw, sender_id: 7 }));
+
+  assert.deepEqual(
+    branches.map((branch) => {
+      if (branch.type === 'command') {
+        return { type: branch.type, path: branch.path, name: branch.command.name };
+      }
+      return { type: branch.type, path: branch.path };
+    }),
+    [
+      { type: 'command', path: [], name: 'ping' },
+      { type: 'command', path: ['admin'], name: 'ban' },
+      { type: 'command', path: [], name: 'secret' },
+    ],
+  );
 });
 
 test('dispatches raw patterns without a command prefix', async () => {
