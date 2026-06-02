@@ -77,13 +77,16 @@ ctx.random.sample(['Ras', 'Chiffon', 'Salt', 'Milk', 'Shama', 'Otohime'], 2);
 ctx.random.weightedIndex([1, 3, 5]);
 // 根据权重返回一个索引，0 的概率为 1/9，1 的概率为 3/9，2 的概率为 5/9
 
-const options = ['Ras', 'Chiffon', 'Salt'];
-const weights = [1, 3, 5];
-const elem = options[ctx.random.weightedIndex(weights)];
-// 根据权重随机选择一个元素，'Ras' 的概率为 1/9，'Chiffon' 的概率为 3/9，'Salt' 的概率为 5/9
-
-// OR:
-const elem = ctx.random.weightedPick(options, (index) => weights[index]);
+const weights = {
+  Ras: 1,
+  Chiffon: 3,
+  Salt: 5,
+};
+const elem = ctx.random.weightedPick(
+  Object.keys(weights),
+  (item) => weights[item],
+);
+// 根据权重随机选择一个元素，Ras 的概率为 1/9，Chiffon 的概率为 3/9，Salt 的概率为 5/9
 ```
 
 ## 状态管理
