@@ -1,7 +1,10 @@
 import type { LogMessage } from '@fraqjs/fraq';
 import chalk, { type ChalkInstance } from 'chalk';
 
+type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+
 export interface ColoredLogHandlerOptions {
+  minLevel: LogLevel;
   dateTime?: {
     locale?: Intl.LocalesArgument;
     options?: Intl.DateTimeFormatOptions;
@@ -19,8 +22,15 @@ export interface ColoredLogHandlerOptions {
   };
 }
 
-export function createColoredLogHandler(options?: ColoredLogHandlerOptions): (message: LogMessage) => void {
-  const toLocaleStringOptions = options?.dateTime?.options ?? {
+const levelPriority: Record<LogLevel, number> = {
+  debug: 0,
+  info: 1,
+  warn: 2,
+  error: 3,
+};
+
+export function createColoredLogHandler(options: ColoredLogHandlerOptions): (message: LogMessage) => void {
+  const toLocaleStringOptions = options.dateTime?.options ?? {
     timeZone: 'Asia/Shanghai',
     year: 'numeric',
     month: '2-digit',
@@ -29,17 +39,21 @@ export function createColoredLogHandler(options?: ColoredLogHandlerOptions): (me
     minute: '2-digit',
     second: '2-digit',
   };
-  const dateTimeChalk = options?.chalks?.dateTime ?? chalk.bold.greenBright;
-  const debugChalk = options?.chalks?.level?.debug ?? chalk.blueBright;
-  const infoChalk = options?.chalks?.level?.info ?? chalk.green;
-  const warnAndRestChalk = options?.chalks?.level?.warn ?? chalk.yellowBright;
-  const errorAndRestChalk = options?.chalks?.level?.error ?? chalk.redBright;
-  const debugAndInfoModuleChalk = options?.chalks?.module ?? chalk.cyan;
-  const debugAndInfoMessageChalk = options?.chalks?.message;
+  const dateTimeChalk = options.chalks?.dateTime ?? chalk.bold.greenBright;
+  const debugChalk = options.chalks?.level?.debug ?? chalk.blueBright;
+  const infoChalk = options.chalks?.level?.info ?? chalk.green;
+  const warnAndRestChalk = options.chalks?.level?.warn ?? chalk.yellowBright;
+  const errorAndRestChalk = options.chalks?.level?.error ?? chalk.redBright;
+  const debugAndInfoModuleChalk = options.chalks?.module ?? chalk.cyan;
+  const debugAndInfoMessageChalk = options.chalks?.message;
 
   return ({ time, level, module, message, error }) => {
+    if (levelPriority[level] < levelPriority[options.minLevel]) {
+      return;
+    }
+
     const dateTimeStr = dateTimeChalk(
-      new Date(time).toLocaleString(options?.dateTime?.locale ?? 'zh-CN', toLocaleStringOptions),
+      new Date(time).toLocaleString(options.dateTime?.locale ?? 'zh-CN', toLocaleStringOptions),
     );
     let levelStr: string, moduleStr: string, messageStr: string, errorStr: string | undefined;
 

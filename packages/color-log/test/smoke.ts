@@ -1,13 +1,15 @@
 import { createColoredLogHandler } from '../src';
 
-const handler = createColoredLogHandler();
+const handler = createColoredLogHandler({
+  minLevel: 'info',
+});
 
 handler({
   level: 'debug',
   module: 'root',
   message: 'Debugging info',
   time: Date.now(),
-});
+}); // won't print
 
 handler({
   level: 'info',
