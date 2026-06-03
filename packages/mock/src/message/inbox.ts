@@ -61,6 +61,7 @@ interface MockConversationState {
   nextTime: number;
   messages: milky.IncomingMessage[];
   bySeq: Map<number, milky.IncomingMessage>;
+  lastReadMessageSeq?: number | undefined;
 }
 
 function assertSafeInteger(value: number, name: string): void {
@@ -120,6 +121,9 @@ export class MockInbox {
   private readonly conversationKeyOf: (context: MockMessageContext) => string;
   private readonly conversations = new Map<string, MockConversationState>();
   private readonly allMessages: milky.IncomingMessage[] = [];
+  private readonly friends = new Map<number, milky.FriendEntity>();
+  private readonly groups = new Map<number, milky.GroupEntity>();
+  private readonly groupMembers = new Map<string, milky.GroupMemberEntity>();
 
   constructor(options: MockInboxOptions = {}) {
     this.selfId = options.selfId ?? 10000;
@@ -356,6 +360,73 @@ export class MockInbox {
     return state?.bySeq.get(messageSeq);
   }
 
+  getMessage(input: milky.GetMessageInput_ZodInput): milky.GetMessageOutput {
+    const conversationKey = this.queryConversationKey(input.message_scene, input.peer_id);
+    const message = this.message(conversationKey, input.message_seq);
+    if (!message) {
+      throw new Error(
+        `Message not found (scene=${input.message_scene} peer=${input.peer_id} seq=${input.message_seq})`,
+      );
+    }
+    return { message };
+  }
+
+  getHistoryMessages(input: milky.GetHistoryMessagesInput_ZodInput): milky.GetHistoryMessagesOutput {
+    const conversationKey = this.queryConversationKey(input.message_scene, input.peer_id);
+    const limit = input.limit ?? 30;
+    const startMessageSeq = input.start_message_seq;
+    assertPositiveInteger(limit, 'limit');
+    if (limit > 30) {
+      throw new RangeError('limit must be less than or equal to 30.');
+    }
+
+    const messages = this.history(conversationKey);
+    const endIndex =
+      startMessageSeq == null
+        ? messages.length
+        : messages.findIndex((message) => message.message_seq > startMessageSeq);
+    const boundedMessages = endIndex === -1 ? messages : messages.slice(0, endIndex);
+    const startIndex = Math.max(0, boundedMessages.length - limit);
+    const selectedMessages = boundedMessages.slice(startIndex);
+    const nextMessage = boundedMessages[startIndex - 1];
+
+    return {
+      messages: selectedMessages,
+      next_message_seq: nextMessage?.message_seq,
+    };
+  }
+
+  markMessageAsRead(input: milky.MarkMessageAsReadInput_ZodInput): milky.MarkMessageAsReadOutput {
+    if (input.message_scene === 'temp') {
+      return {};
+    }
+
+    const conversationKey = this.queryConversationKey(input.message_scene, input.peer_id);
+    const state = this.getOrCreateConversationState(conversationKey);
+    state.lastReadMessageSeq = input.message_seq;
+    return {};
+  }
+
+  getFriendInfo(input: milky.GetFriendInfoInput_ZodInput): milky.GetFriendInfoOutput {
+    assertPositiveInteger(input.user_id, 'user_id');
+    const friend = this.friends.get(input.user_id) ?? createRandomFriend(input.user_id);
+    return { friend };
+  }
+
+  getGroupInfo(input: milky.GetGroupInfoInput_ZodInput): milky.GetGroupInfoOutput {
+    assertPositiveInteger(input.group_id, 'group_id');
+    const group = this.groups.get(input.group_id) ?? createRandomGroup(input.group_id);
+    return { group };
+  }
+
+  getGroupMemberInfo(input: milky.GetGroupMemberInfoInput_ZodInput): milky.GetGroupMemberInfoOutput {
+    assertPositiveInteger(input.group_id, 'group_id');
+    assertPositiveInteger(input.user_id, 'user_id');
+    const key = groupMemberKey(input.group_id, input.user_id);
+    const member = this.groupMembers.get(key) ?? createRandomGroupMember(input.group_id, input.user_id);
+    return { member };
+  }
+
   history(conversationKey?: string): milky.IncomingMessage[] {
     if (conversationKey === undefined) {
       return [...this.allMessages];
@@ -399,6 +470,7 @@ export class MockInbox {
         nextTime: this.baseTime,
         messages: [],
         bySeq: new Map<number, milky.IncomingMessage>(),
+        lastReadMessageSeq: undefined,
       };
       this.conversations.set(conversationKey, state);
     }
@@ -410,6 +482,32 @@ export class MockInbox {
     state.messages.push(message);
     state.bySeq.set(message.message_seq, message);
     this.allMessages.push(message);
+    switch (message.message_scene) {
+      case 'friend':
+        this.friends.set(message.friend.user_id, message.friend);
+        break;
+      case 'group':
+        this.groups.set(message.group.group_id, message.group);
+        this.groupMembers.set(groupMemberKey(message.group_member.group_id, message.group_member.user_id), message.group_member);
+        break;
+      case 'temp':
+        if (message.group) {
+          this.groups.set(message.group.group_id, message.group);
+        }
+        break;
+    }
+  }
+
+  private queryConversationKey(scene: 'friend' | 'group' | 'temp', peerId: number): string {
+    assertPositiveInteger(peerId, 'peer_id');
+    switch (scene) {
+      case 'friend':
+        return this.friendConversationKey(peerId);
+      case 'group':
+        return this.groupConversationKey(peerId);
+      case 'temp':
+        throw new Error('Temporary message queries are not supported.');
+    }
   }
 }
 
@@ -426,4 +524,8 @@ function defaultConversationKey(context: MockMessageContext): string {
 
 export function createMockInbox(options?: MockInboxOptions): MockInbox {
   return new MockInbox(options);
+}
+
+function groupMemberKey(groupId: number, userId: number): string {
+  return `${groupId}:${userId}`;
 }
