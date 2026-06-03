@@ -213,4 +213,21 @@ class DisposableService implements Disposable {
 }
 ```
 
+{/* prettier-ignore */}
+<Callout type="warn">
+[`esnext.disposable.d.ts`](https://github.com/microsoft/TypeScript/blob/main/src/lib/esnext.disposable.d.ts) 也提供了一个 `Disposable` 接口，但其声明与 Fraq 的 `Disposable` 接口不同。`ESNext` 的 `Disposable` 接口声明如下：
+
+```typescript
+interface Disposable {
+  [Symbol.dispose](): void;
+}
+```
+
+因此，如果你想要在 Fraq 中使用 `Disposable` 接口来管理服务的生命周期，请确保你显式导入了 `@fraqjs/fraq` 包中的 `Disposable` 接口，否则你实现的将是 `ESNext` 中的 `Disposable` 接口。
+
+相应地，为了避免这种情况的发生，Fraq 在 `Context` 的 `provide` 方法中增加了一个检查，如果你提供的服务实现了 `ESNext` 的 `Disposable` 但没有实现 Fraq 的 `Disposable`，Fraq 会抛出一个错误，提示你正确地导入和实现 Fraq 的 `Disposable` 接口。
+
+</Callout>
+{/* prettier-ignore-end */}
+
 那么在 `Context` 卸载 `DisposableService` 时，控制台会输出 `Service is being disposed`。关于 `Context` 生命周期结束时的行为，请见[上下文 (Context)](./digging/context.mdx#停止-context) 中的介绍。
