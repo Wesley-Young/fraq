@@ -7,7 +7,7 @@ import { Router, type Session } from '../routing/router';
 import type { Filter } from './filter';
 import { Logger, type LogHandler } from './logging';
 import type { Injection, ParameterList, Plugin } from './plugin';
-import { isDisposable, type ServiceClass } from './service';
+import { implementsESNextDisposable, isDisposable, type ServiceClass } from './service';
 
 const DEFAULT_INITIAL_RECONNECT_DELAY_MS = 1_000;
 const DEFAULT_MAX_RECONNECT_DELAY_MS = 30_000;
@@ -122,6 +122,16 @@ export class Context {
   provide<T extends object>(service: ServiceClass<T>, instance: T): void {
     if (this.services.has(service)) {
       throw new Error(`Service ${service.name} has already been provided in this context.`);
+    }
+    if (implementsESNextDisposable(instance) && !isDisposable(instance)) {
+      throw new Error(`
+Service ${service.name} implements ESNext Disposable but not Fraq Disposable.
+Please explicitly import the interface like this:
+
+import type { Disposable } from '@fraqjs/fraq';
+
+and implement the dispose method to clean up resources when the context stops.
+    `.trim());
     }
     this.services.set(service, instance);
   }

@@ -8,3 +8,7 @@ export interface Disposable {
 export function isDisposable(service: object): service is Disposable {
   return 'dispose' in service && typeof service.dispose === 'function';
 }
+
+export function implementsESNextDisposable(service: object): boolean {
+  return Symbol.dispose in service && typeof (service as any)[Symbol.dispose] === 'function';
+}
