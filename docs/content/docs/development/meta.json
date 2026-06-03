@@ -7,7 +7,6 @@
     "plugin",
     "logging",
     "mocking",
-    "digging",
-    "plugins"
+    "digging"
   ]
 }
