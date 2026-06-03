@@ -69,4 +69,5 @@ export function createMockMilkyClient(): MockMilkyClient {
   }) as MockMilkyClient;
 }
 
+export * from './entity';
 export * from './logging';

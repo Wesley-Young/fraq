@@ -1,0 +1,195 @@
+{
+  "friend": {
+    "firstNames": [
+      "Alice",
+      "Bob",
+      "Carol",
+      "Dave",
+      "Eve",
+      "Frank",
+      "Grace",
+      "Heidi",
+      "Ivan",
+      "Judy",
+      "Mallory",
+      "Niaj",
+      "Olivia",
+      "Peggy",
+      "Rupert",
+      "Sybil",
+      "Trent",
+      "Victor",
+      "Walter",
+      "Zoe"
+    ],
+    "lastNames": [
+      "Ash",
+      "Brook",
+      "Cedar",
+      "Dawn",
+      "Ember",
+      "Field",
+      "Grove",
+      "Harbor",
+      "Ivory",
+      "Jasper",
+      "Kite",
+      "Lake",
+      "Meadow",
+      "North",
+      "Oak",
+      "Pine",
+      "Quill",
+      "River",
+      "Stone",
+      "Vale"
+    ],
+    "nicknameSuffixes": [
+      "",
+      "",
+      "",
+      "Nova",
+      "Pixel",
+      "Echo",
+      "Skylark",
+      "Comet",
+      "Drift",
+      "Aurora"
+    ],
+    "remarks": [
+      "",
+      "",
+      "",
+      "Project lead",
+      "Design review",
+      "Ops contact",
+      "Weekend runner",
+      "Late-night debugger",
+      "Coffee strategist",
+      "Always online"
+    ],
+    "categoryNames": [
+      "General",
+      "Work",
+      "Friends",
+      "Study",
+      "Gaming",
+      "Family",
+      "Local",
+      "Archive"
+    ]
+  },
+  "group": {
+    "prefixes": [
+      "Northwind",
+      "Silver",
+      "Quiet",
+      "Golden",
+      "Blue",
+      "Rapid",
+      "Lucky",
+      "Open",
+      "Bright",
+      "Sunday"
+    ],
+    "topics": [
+      "Studio",
+      "Workshop",
+      "Lab",
+      "Guild",
+      "Circle",
+      "Squad",
+      "Forum",
+      "Club",
+      "Corner",
+      "Channel"
+    ],
+    "suffixes": [
+      "",
+      "",
+      "HQ",
+      "Room",
+      "Collective",
+      "Network",
+      "Union",
+      "Hub"
+    ],
+    "remarks": [
+      "",
+      "",
+      "Pinned for testing",
+      "Quiet hours after midnight",
+      "Temporary coordination group",
+      "Read-only on weekends"
+    ],
+    "descriptions": [
+      "A steady group for day-to-day coordination and practical discussion.",
+      "A relaxed place for updates, shared notes, and quick questions.",
+      "Used for planning, follow-up, and keeping small tasks moving.",
+      "A focused channel for experiments, reviews, and status checks.",
+      "A casual room where people trade ideas, links, and useful context."
+    ],
+    "questions": [
+      "",
+      "",
+      "What are you hoping to work on here?",
+      "Who invited you to join this group?",
+      "Share one sentence about your role in this space."
+    ],
+    "announcements": [
+      "Welcome aboard. Keep threads tidy and label follow-ups clearly.",
+      "Weekly review starts at 20:00. Bring blockers and next steps.",
+      "Please avoid duplicate questions; check the pinned notes first.",
+      "Files older than 30 days may be archived during cleanup.",
+      "Be kind, be direct, and leave enough context for the next person."
+    ]
+  },
+  "groupMember": {
+    "cardPrefixes": [
+      "",
+      "",
+      "Lead",
+      "Deputy",
+      "Night",
+      "Field",
+      "On-call",
+      "Guest",
+      "Blue",
+      "Quiet"
+    ],
+    "cardSuffixes": [
+      "",
+      "",
+      "Ops",
+      "Builder",
+      "Planner",
+      "Scout",
+      "Keeper",
+      "Pilot",
+      "Scribe",
+      "Watcher"
+    ],
+    "titles": [
+      "",
+      "",
+      "",
+      "Early Bird",
+      "Bug Hunter",
+      "Note Keeper",
+      "Night Shift",
+      "Fast Responder",
+      "Steady Hand",
+      "Build Whisperer"
+    ],
+    "levelLabels": [
+      "Sprout",
+      "Scout",
+      "Maker",
+      "Pilot",
+      "Anchor",
+      "Keeper",
+      "Guide",
+      "Expert"
+    ]
+  }
+}

@@ -10,7 +10,7 @@
   "typings": "dist/index.d.mts",
   "scripts": {
     "build": "tsdown",
-    "test": "tsx test/smoke.ts",
+    "test": "tsx --test test/*.test.ts",
     "prepack": "pnpm build"
   },
   "keywords": [],
@@ -21,6 +21,9 @@
   },
   "homepage": "https://fraq.ntqqrev.org/",
   "license": "MIT",
+  "devDependencies": {
+    "@fraqjs/plugin-random": "workspace:^"
+  },
   "peerDependencies": {
     "@fraqjs/fraq": "workspace:^"
   }

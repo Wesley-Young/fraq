@@ -109,6 +109,10 @@ importers:
       '@fraqjs/fraq':
         specifier: workspace:^
         version: link:../core
+    devDependencies:
+      '@fraqjs/plugin-random':
+        specifier: workspace:^
+        version: link:../../plugins/random
 
   plugins/conversation:
     dependencies:

@@ -57,7 +57,7 @@
       }
     },
     {
-      "includes": ["**/tsconfig*json"],
+      "includes": ["**/tsconfig*json", "vocabulary.json"],
       "formatter": {
         "enabled": false
       }
