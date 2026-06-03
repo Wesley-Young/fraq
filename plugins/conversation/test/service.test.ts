@@ -1,38 +1,10 @@
-import { Context, type milky, msg, param } from '@fraqjs/fraq';
-import { createMockMilkyClient } from '@fraqjs/mock';
+import { Context, msg, param } from '@fraqjs/fraq';
+import { createMockMilkyClient, inmsg } from '@fraqjs/mock';
 
 import { ConversationService } from '../src';
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-
-function text(text: string): milky.IncomingTextSegment {
-  return {
-    type: 'text',
-    data: { text },
-  };
-}
-
-function friendMessage(textContent: string, options: { peerId?: number; senderId?: number; seq?: number } = {}) {
-  const peerId = options.peerId ?? 1;
-  const senderId = options.senderId ?? peerId;
-  const seq = options.seq ?? 1;
-
-  return {
-    event_type: 'message_receive',
-    time: seq,
-    self_id: 10000,
-    data: {
-      message_scene: 'friend',
-      peer_id: peerId,
-      message_seq: seq,
-      sender_id: senderId,
-      time: seq,
-      segments: [text(textContent)],
-      friend: {} as milky.FriendEntity,
-    },
-  } satisfies milky.MessageReceiveEvent;
-}
 
 async function tick(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 0));
@@ -62,12 +34,12 @@ test('open resolves when a later message matches its temporary router', async ()
   });
 
   await ctx.start();
-  await client.emitEvent(friendMessage('ask', { seq: 1 }));
+  await client.receiveFriend({ userId: 1 }, inmsg`ask`);
   await tick();
 
   assert.ok(resultPromise);
 
-  await client.emitEvent(friendMessage('yes', { seq: 2 }));
+  await client.receiveFriend({ userId: 1 }, inmsg`yes`);
 
   assert.equal(await resultPromise, 'answer');
   assert.equal(answerSeq, 2);
@@ -103,12 +75,12 @@ test('open tracks active conversations independently by sender, scene, and peer'
   });
 
   await ctx.start();
-  await client.emitEvent(friendMessage('ask', { peerId: 1, senderId: 1, seq: 1 }));
-  await client.emitEvent(friendMessage('ask', { peerId: 2, senderId: 2, seq: 1 }));
+  await client.receiveFriend({ userId: 1 }, inmsg`ask`);
+  await client.receiveFriend({ userId: 2 }, inmsg`ask`);
   await tick();
 
-  await client.emitEvent(friendMessage('yes', { peerId: 2, senderId: 2, seq: 2 }));
-  await client.emitEvent(friendMessage('yes', { peerId: 1, senderId: 1, seq: 2 }));
+  await client.receiveFriend({ userId: 2 }, inmsg`yes`);
+  await client.receiveFriend({ userId: 1 }, inmsg`yes`);
 
   assert.equal(await results.get(1), 1);
   assert.equal(await results.get(2), 2);
@@ -127,7 +99,7 @@ test('open resolves null when the conversation times out', async () => {
   });
 
   await ctx.start();
-  await client.emitEvent(friendMessage('ask'));
+  await client.receiveFriend({ userId: 1 }, inmsg`ask`);
   await tick();
 
   assert.ok(resultPromise);
@@ -156,7 +128,7 @@ test('requires defaultTimeout and timeout to be positive finite numbers', async 
   });
 
   await ctx.start();
-  await client.emitEvent(friendMessage('ask'));
+  await client.receiveFriend({ userId: 1 }, inmsg`ask`);
   await tick();
 
   assert.ok(resultPromise);
@@ -181,9 +153,9 @@ test('active conversation handles a repeated triggering command without dispatch
   });
 
   await ctx.start();
-  await client.emitEvent(friendMessage('天气', { seq: 1 }));
+  await client.receiveFriend({ userId: 1 }, inmsg`天气`);
   await tick();
-  await client.emitEvent(friendMessage('天气', { seq: 2 }));
+  await client.receiveFriend({ userId: 1 }, inmsg`天气`);
 
   assert.ok(resultPromise);
   assert.equal(await resultPromise, '天气');
