@@ -1,0 +1,154 @@
+---
+title: 进行 Mock 测试
+---
+
+<NpmBadge packageName="@fraqjs/mock" />
+
+在编写机器人时，我们不一定总是拥有 / 愿意运行一个完整的 Milky 协议端来测试我们的代码，在这种情况下，创建一个模拟（Mock）客户端是非常有用的，而 `@fraqjs/mock` 包正提供了这样的功能，你可以使用包管理器安装它。
+
+## 初始化 Mock 环境
+
+要创建一个 Mock 客户端，你可以使用 `createMockMilkyClient` 函数，然后你就可以像使用正常的 Milky 客户端一样使用它了：
+
+```typescript
+import { Context } from '@fraqjs/fraq';
+import { createMockMilkyClient } from '@fraqjs/mock';
+
+const client = createMockMilkyClient();
+const ctx = Context.fromClient(client);
+```
+
+`@fraqjs/mock` 还提供了一个 `createSimpleLogHandler` 函数用于创建一个直接打印到命令行、没有任何颜色样式的 `LogHandler`。你也可以使用其他的日志处理器（例如 [`@fraqjs/color-log`](./logging.mdx#使用-color-log) 提供的处理器）来打印日志，方便插件的调试。
+
+## 模拟消息事件
+
+`MockMilkyClient` 提供了一些函数来模拟不同类型的消息事件：
+
+```typescript
+await client.receiveFriend({ userId: 10001 }, inmsg`ping`);
+await client.receiveGroup({ groupId: 20001, userId: 10001 }, inmsg`/deploy`);
+await client.receiveTemp({ userId: 10001, groupId: 20001 }, inmsg`hello`);
+```
+
+第一个参数包含了消息事件的相关信息，例如发送者的 QQ 号、所在的群号等，你也可以提供一些其他的信息来覆盖默认值，例如：
+
+```typescript
+await client.receiveFriend(
+  {
+    userId: 10001,
+    peerId: 10001,
+    senderId: 10001,
+    messageSeq: 7,
+    time: 123456,
+  },
+  inmsg`hello`,
+);
+```
+
+第二个参数是一个 `IncomingSegment[]`，你可以使用 `inmsg` 来方便地创建它。`inmsg` 同样支持字符串、数字、布尔值插值、`inseg` 插值、自动 `trim`，用法与之前提到的 [`msg`](./message.mdx#msg-函数) 与 [`seg`](./message.mdx#seg-命名空间) 一致；不同的地方在于 `inmsg` 和 `inseg` 生成的是 `IncomingSegment`。
+
+## 生成实体信息
+
+`@fraqjs/mock` 还提供了生成好友、群聊以及群成员信息的函数。这些函数将提供的 ID 作为 PCG32 的 `seed`，并且从内置的词库中选取片段来组合实体信息，因此生成的信息是**可复现**的。上面提到的模拟消息事件函数会自动调用这些生成函数来生成相关的实体信息，你可以直接调用它们来获取这些信息：
+
+```typescript
+createRandomFriend(10001);
+createRandomGroup(20001);
+createRandomGroupMember(20001, 10001);
+```
+
+你也可以提供一些覆盖默认值的选项：
+
+```typescript
+createRandomFriend(10001, { remark: 'Override' });
+createRandomGroup(20001, { group_name: 'Override' });
+```
+
+## 处理 API 调用
+
+`MockMilkyClient` 本身不会对任何 API 调用返回有效的响应，只会返回 `undefined`。你可以使用 `stubApi` 方法来为某个 API 端点设置一个模拟的响应：
+
+```typescript
+client.stubApi('get_friend_info', (params) => ({
+  friend: {
+    user_id: params.user_id,
+    nickname: 'Override',
+    sex: 'unknown',
+    qid: 'qid_override',
+    remark: '',
+    category: {
+      category_id: 1,
+      category_name: 'General',
+    },
+  },
+}));
+```
+
+此后，当插件调用 `get_friend_info` API 时，就会得到我们设置的这个模拟响应。
+
+### 内置 API Stub
+
+在创建 `MockMilkyClient` 的时候，它会自动为一些常用的 API 端点设置默认的模拟响应。
+
+首先是一些与消息有关的 API：
+
+- `get_message`
+- `get_history_messages`
+- `mark_message_as_read`
+
+这些 API 的模拟响应会根据提供的信息从已经发送过的消息中生成，因此它们可以在不需要额外设置的情况下就能得到合理的响应。
+
+除此之外，还有一些与实体信息有关的 API：
+
+- `get_friend_info`
+- `get_group_info`
+- `get_group_member_info`
+
+这些 API 会先寻找之前调用的模拟消息事件中包含的实体信息，如果未发现匹配的实体信息，则会调用前面提到的生成实体信息的函数来生成一个新的实体信息作为响应。
+
+如果要覆盖这些 API 的默认模拟响应，你可以直接使用 `stubApi` 方法来设置一个新的模拟响应。你也可以调用 `clearApiStub` 和 `clearApiStubs` 方法来清除某个 API 端点或所有 API 端点的模拟响应。
+
+## 模拟其他事件
+
+`MockMilkyClient` 还提供了一个 `emitEvent` 方法来模拟其他类型的事件，例如：
+
+```typescript
+client.emitEvent('group_join_request', {
+  group_id: 20001,
+  notification_seq: 7,
+  is_filtered: false,
+  initiator_id: 10001,
+  comment: `
+问题：从哪了解到本群的
+答案：GitHub
+  `.trim(),
+});
+```
+
+## 完整示例
+
+所有刚才的介绍都只涉及了我们该如何模拟用户输入，但更重要的部分在于检查插件对这些输入的响应。`MockMilkyClient` 提供了一个名叫 `apiCalls` 的属性，来记录由 `Context` 发起的所有 API 调用。每当插件调用一个 API 时，`apiCalls` 中就会记录下这个调用的端点和参数，你可以检查 `apiCalls` 的最后若干条记录来验证插件是否正确地调用了预期的 API，以及调用时使用了正确的参数。
+
+例如，仍然以我们的 Echo 机器人为例，让我们编写一个完整的测试：
+
+```typescript
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+test('echo plugin echoes string input prefixed with echo', async () => {
+  const client = createMockMilkyClient();
+  const ctx = Context.fromClient(client);
+  ctx.install(EchoPlugin);
+  await ctx.start();
+
+  await client.receiveFriend({ userId: 10001 }, inmsg`echo Hello`);
+
+  assert.deepEqual(client.apiCalls.at(-1), {
+    endpoint: 'send_friend_message',
+    params: {
+      user_id: 10001,
+      message: [{ type: 'text', text: 'Hello' }],
+    },
+  });
+});
+```
