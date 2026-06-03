@@ -7,7 +7,7 @@ title: 上下文 (Context)
 - `ctx.router` 是一个 `Router` 实例，用于定义指令、进行模式匹配等。
 - `ctx.client` 是一个 `MilkyClient` 实例，用于调用 Milky 的 API。
 - `ctx.logger` 是一个 `Logger` 实例，用于记录日志。
-- `ctx.on` 用于监听事件，例如 `message_receive`、`message_recall` 等。
+- `ctx.on` 用于监听事件，例如 `message_receive`、`message_recall` 等，并返回一个注销监听器的函数。
 - `ctx.install` 用于安装插件。
 - `ctx.provide` 和 `ctx.resolve` 用于提供和解析服务。
 - `ctx.start` 用于启动机器人。
@@ -174,6 +174,44 @@ ctx.fork('fork1', filter1).install(pluginA); // pluginA 只会监听来自群聊
 ctx.fork('fork2', filter4).install(pluginB); // pluginB 只会监听来自群聊 123456 的管理员的消息事件
 ctx.start();
 ```
+
+## 停止 `Context`
+
+调用 `ctx.stop` 方法可以停止 `Context`，此后 `Context` 将不再响应任何事件，也无法调用 Milky API。`Context` 在调用 `stop` 后无法再次启动。`stop` 的流程是：
+
+1. 停止根事件流，例如断开 WebSocket 连接，禁止后续的事件进入 `Context`。
+2. 按照 `fork` 的顺序反向调用所有子 `Context` 的 `stop` 方法，停止所有子 `Context`。子 `Context` 的 `stop` 方法会按照同样的流程停止它的子 `Context`，并且按照 `provide` 的顺序反向调用自身（子 `Context`）注册的所有服务的 `dispose` 方法（如果服务实现了 `Disposable` 接口），释放所有服务。
+3. 按照 `provide` 的顺序反向调用自身（根 `Context`）注册的所有服务的 `dispose` 方法。
+
+假如我们有这样的 `Context` 结构：
+
+```
+root
+  pluginA (provides ServiceA)
+  pluginB (provides ServiceB)
+  fork1 (filter: group 123456)
+    pluginC (provides ServiceC)
+    fork1-1
+      pluginD (provides ServiceD)
+  fork2
+    pluginE (provides ServiceE)
+```
+
+那么停止的顺序会是：
+
+```
+stop event flow [root]
+stop event flow [fork1]
+stop event flow [fork1-1]
+dispose [ServiceD]
+dispose [ServiceC]
+stop event flow [fork2]
+dispose [ServiceE]
+dispose [ServiceB]
+dispose [ServiceA]
+```
+
+在调用各个 `dispose` 方法时，Fraq 会捕获并记录任何可能发生的错误，并继续调用下一个 `dispose` 方法，而不会因为某个服务的 `dispose` 方法抛出错误而中断整个停止流程。如果有多个 `dispose` 方法抛出错误，Fraq 会把它们包装成一个 [`AggregateError`](https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Global_Objects/AggregateError) 来抛出。
 
 ## 触发规则
 
