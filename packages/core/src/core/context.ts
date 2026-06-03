@@ -1,16 +1,18 @@
-import mitt from 'mitt';
+import mitt, { type WildcardHandler } from 'mitt';
 
-import { createMilkyClient, type MilkyClient } from '../protocol/client';
+import { createMilkyClient, type MilkyClient, type MilkyEventSubscription } from '../protocol/client';
 import type { EventMap } from '../protocol/endpoint';
 import type { Event, IncomingMessage } from '../protocol/types';
 import { Router, type Session } from '../routing/router';
 import type { Filter } from './filter';
 import { Logger, type LogHandler } from './logging';
 import type { Injection, ParameterList, Plugin } from './plugin';
-import { getServiceName, type ServiceClass } from './service';
+import { isDisposable, type ServiceClass } from './service';
 
 const DEFAULT_INITIAL_RECONNECT_DELAY_MS = 1_000;
 const DEFAULT_MAX_RECONNECT_DELAY_MS = 30_000;
+
+type ContextState = 'idle' | 'starting' | 'started' | 'stopping' | 'stopped';
 
 type InstalledPlugin = {
   plugin: Plugin<ParameterList, Injection | undefined, Injection | undefined>;
@@ -40,12 +42,19 @@ export class Context {
   private readonly plugins: InstalledPlugin[] = [];
   private readonly services = new Map<ServiceClass, object>();
   private readonly subContexts: Context[] = [];
+  private readonly parentEventForwarder?: WildcardHandler<EventMap>;
 
   private readonly initialReconnectDelayMs: number;
   private readonly maxReconnectDelayMs: number;
   private readonly logHandler?: LogHandler;
 
-  private isStarted = false;
+  private state: ContextState = 'idle';
+  private startPromise?: Promise<void>;
+  private stopPromise?: Promise<void>;
+  private eventSubscription?: MilkyEventSubscription;
+  private eventStreamTask?: Promise<void>;
+  private reconnectTimer?: ReturnType<typeof setTimeout>;
+  private resolveReconnectTimer?: () => void;
 
   private constructor(
     readonly client: MilkyClient,
@@ -62,14 +71,20 @@ export class Context {
 
     this.parent = parent;
     this.filter = filter;
-    parent?.eventBus.on('*', (type, event) => {
-      if (!this.acceptsParentEvent(type, event)) {
-        return;
-      }
-      this.eventBus.emit(type, event);
-    });
+    if (parent) {
+      this.parentEventForwarder = (type, event) => {
+        if (!this.acceptsParentEvent(type, event)) {
+          return;
+        }
+        this.eventBus.emit(type, event);
+      };
+      parent.eventBus.on('*', this.parentEventForwarder);
+    }
     this.eventBus.on('message_receive', async ({ data: message }) => {
       try {
+        if (this.state === 'stopping' || this.state === 'stopped') {
+          return;
+        }
         await this.router.dispatch(this.createSession(message), message);
       } catch (error) {
         this.logger.error(
@@ -80,14 +95,21 @@ export class Context {
     });
   }
 
-  on<K extends keyof EventMap>(type: K, handler: (event: EventMap[K]) => void | Promise<void>): void {
-    this.eventBus.on(type, async (event) => {
+  on<K extends keyof EventMap>(type: K, handler: (event: EventMap[K]) => void | Promise<void>): () => void {
+    const wrappedHandler = async (event: EventMap[K]) => {
       try {
+        if (this.state === 'stopping' || this.state === 'stopped') {
+          return;
+        }
         await handler(event);
       } catch (error) {
         this.logger.error(`Error handling event ${type}`, error);
       }
-    });
+    };
+    this.eventBus.on(type, wrappedHandler);
+    return () => {
+      this.eventBus.off(type, wrappedHandler);
+    };
   }
 
   install<T extends ParameterList, I extends Injection | undefined, OI extends Injection | undefined>(
@@ -99,7 +121,7 @@ export class Context {
 
   provide<T extends object>(service: ServiceClass<T>, instance: T): void {
     if (this.services.has(service)) {
-      throw new Error(`Service ${getServiceName(service)} has already been provided in this context.`);
+      throw new Error(`Service ${service.name} has already been provided in this context.`);
     }
     this.services.set(service, instance);
   }
@@ -107,7 +129,7 @@ export class Context {
   resolve<T extends object>(service: ServiceClass<T>): T {
     const instance = this.tryResolve(service);
     if (instance === undefined) {
-      throw new Error(`Service ${getServiceName(service)} has not been provided.`);
+      throw new Error(`Service ${service.name} has not been provided.`);
     }
     return instance;
   }
@@ -159,16 +181,131 @@ export class Context {
   }
 
   async start(): Promise<void> {
-    if (this.isStarted) {
+    if (this.state === 'started') {
       return;
     }
-    await this.applyPlugins();
+    if (this.state === 'starting') {
+      await this.startPromise;
+      return;
+    }
+    if (this.state === 'stopping') {
+      throw new Error(`Context "${this.name}" cannot be started while it is stopping.`);
+    }
+    if (this.state === 'stopped') {
+      throw new Error(`Context "${this.name}" cannot be restarted after it has been stopped.`);
+    }
+
+    this.state = 'starting';
+    this.startPromise = this.startInternal();
+    try {
+      await this.startPromise;
+    } finally {
+      this.startPromise = undefined;
+    }
+  }
+
+  async stop(): Promise<void> {
+    if (this.state === 'idle' || this.state === 'stopped') {
+      return;
+    }
+    if (this.state === 'starting') {
+      await this.startPromise;
+    }
+    const stateAfterStart = this.getState();
+    if (stateAfterStart === 'idle' || stateAfterStart === 'stopped') {
+      return;
+    }
+    if (stateAfterStart === 'stopping') {
+      await this.stopPromise;
+      return;
+    }
+
+    this.state = 'stopping';
+    this.stopPromise = this.stopInternal();
+    try {
+      await this.stopPromise;
+    } finally {
+      this.state = 'stopped';
+      this.stopPromise = undefined;
+    }
+  }
+
+  private async startInternal(): Promise<void> {
+    try {
+      await this.applyPlugins();
+    } catch (error) {
+      this.state = 'idle';
+      throw error;
+    }
     for (const subContext of this.subContexts) {
       await subContext.start();
     }
-    this.isStarted = true;
+    this.state = 'started';
     if (!this.parent) {
-      void this.runEventStream();
+      this.eventStreamTask = this.runEventStream();
+    }
+  }
+
+  private getState(): ContextState {
+    return this.state;
+  }
+
+  private async stopInternal(): Promise<void> {
+    const errors: unknown[] = [];
+
+    await this.stopEventStream(errors);
+
+    for (const subContext of [...this.subContexts].reverse()) {
+      try {
+        await subContext.stop();
+      } catch (error) {
+        errors.push(error);
+      }
+    }
+
+    if (this.parent && this.parentEventForwarder) {
+      this.parent.eventBus.off('*', this.parentEventForwarder);
+    }
+
+    for (const service of [...this.services.values()].reverse()) {
+      if (!isDisposable(service)) {
+        continue;
+      }
+      try {
+        await service.dispose();
+      } catch (error) {
+        errors.push(error);
+      }
+    }
+
+    if (errors.length === 1) {
+      throw errors[0];
+    }
+    if (errors.length > 1) {
+      throw new AggregateError(errors, `Context "${this.name}" failed to stop cleanly.`);
+    }
+  }
+
+  private async stopEventStream(errors: unknown[]): Promise<void> {
+    this.resolveReconnectDelay();
+
+    const subscription = this.eventSubscription;
+    if (subscription) {
+      try {
+        await subscription.stop();
+      } catch (error) {
+        errors.push(error);
+      }
+    }
+
+    if (this.eventStreamTask) {
+      try {
+        await this.eventStreamTask;
+      } catch (error) {
+        errors.push(error);
+      } finally {
+        this.eventStreamTask = undefined;
+      }
     }
   }
 
@@ -187,7 +324,7 @@ export class Context {
       await plugin.apply(this.createProxyContextForPlugin(plugin), ...args);
       for (const service of plugin.provides ?? []) {
         if (!this.services.has(service) || providedBeforeApply.has(service)) {
-          throw new Error(`${plugin.name} declares service ${getServiceName(service)} but did not provide it.`);
+          throw new Error(`${plugin.name} declares service ${service.name} but did not provide it.`);
         }
       }
       this.logger.debug(`Applied plugin ${plugin.name}`);
@@ -202,7 +339,7 @@ export class Context {
         const existingProvider = providers.get(service);
         if (existingProvider) {
           throw new Error(
-            `Service ${getServiceName(service)} is declared by multiple plugins: ${existingProvider.name} and ${plugin.name}.`,
+            `Service ${service.name} is declared by multiple plugins: ${existingProvider.name} and ${plugin.name}.`,
           );
         }
         providers.set(service, plugin);
@@ -307,7 +444,7 @@ export class Context {
       const reason = pendingProviders.has(service)
         ? 'blocked by a dependency cycle'
         : 'no installed plugin provides it';
-      return `${getServiceName(service)} required by ${dependents} (${reason})`;
+      return `${service.name} required by ${dependents} (${reason})`;
     });
 
     return new Error(`Unable to resolve plugin service dependencies: ${lines.join('; ')}.`);
@@ -347,28 +484,65 @@ export class Context {
   private async runEventStream(): Promise<void> {
     let reconnectDelay = this.initialReconnectDelayMs;
     let reconnectAttempt = 1;
-    while (this.isStarted) {
+    while (this.state === 'started') {
       try {
         this.logger.debug(`Connecting event stream (attempt=${reconnectAttempt})`);
         const subscription = await this.client.startEvents((event: Event) => {
           try {
+            if (this.state !== 'started') {
+              return;
+            }
             this.eventBus.emit(event.event_type, event);
           } catch (error) {
             this.logger.error('Error handling event stream event', error);
           }
         });
+        if (this.state !== 'started') {
+          await subscription.stop();
+          break;
+        }
+        this.eventSubscription = subscription;
         this.logger.info('Event stream connected');
         reconnectDelay = this.initialReconnectDelayMs;
         reconnectAttempt = 1;
         await subscription.closed;
+        this.eventSubscription = undefined;
+        if (this.state !== 'started') {
+          break;
+        }
         this.logger.warn(`Event stream disconnected; reconnecting in ${reconnectDelay}ms`);
       } catch (error) {
+        this.eventSubscription = undefined;
+        if (this.state !== 'started') {
+          break;
+        }
         this.logger.error(`Error connecting event stream; reconnecting in ${reconnectDelay}ms`, error);
       }
-      await new Promise((resolve) => setTimeout(resolve, reconnectDelay));
+      await this.waitForReconnectDelay(reconnectDelay);
       reconnectDelay = Math.min(reconnectDelay * 2, this.maxReconnectDelayMs);
       reconnectAttempt += 1;
     }
+  }
+
+  private waitForReconnectDelay(delay: number): Promise<void> {
+    return new Promise((resolve) => {
+      this.resolveReconnectTimer = resolve;
+      this.reconnectTimer = setTimeout(() => {
+        this.reconnectTimer = undefined;
+        this.resolveReconnectTimer = undefined;
+        resolve();
+      }, delay);
+    });
+  }
+
+  private resolveReconnectDelay(): void {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = undefined;
+    }
+    const resolve = this.resolveReconnectTimer;
+    this.resolveReconnectTimer = undefined;
+    resolve?.();
   }
 
   static fromUrl(baseUrl: string | URL, options?: ContextOptions & ContextUrlOptions): Context {
