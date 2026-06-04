@@ -2,7 +2,7 @@ import { Context } from '@fraqjs/fraq';
 import { createMockMilkyClient } from '@fraqjs/mock';
 import type { Kysely } from 'kysely';
 
-import { DatabaseService, KyselyPlugin } from '../src';
+import KyselyPlugin, { DatabaseService } from '../src';
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
