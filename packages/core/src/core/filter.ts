@@ -122,4 +122,16 @@ export namespace filter {
     }
     return result;
   }
+
+  export function not(filter: Filter): Filter {
+    const result: Filter = {};
+    for (const key of eventKeys) {
+      result[key] = (event) => {
+        const predicate = filter[key];
+        // @ts-expect-error
+        return !predicate?.(event);
+      };
+    }
+    return result;
+  }
 }
