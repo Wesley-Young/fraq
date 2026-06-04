@@ -330,14 +330,13 @@ and implement the dispose method to clean up resources when the context stops.
   private async applyPlugins(): Promise<void> {
     for (const { plugin, args } of this.sortPlugins()) {
       const providedBeforeApply = new Set(this.services.keys());
-      this.logger.info(`Applying plugin ${plugin.name}`);
+      this.logger.debug(`Applying plugin ${plugin.name}`);
       await plugin.apply(this.createProxyContextForPlugin(plugin), ...args);
       for (const service of plugin.provides ?? []) {
         if (!this.services.has(service) || providedBeforeApply.has(service)) {
           throw new Error(`${plugin.name} declares service ${service.name} but did not provide it.`);
         }
       }
-      this.logger.debug(`Applied plugin ${plugin.name}`);
     }
   }
 
