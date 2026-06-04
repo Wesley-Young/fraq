@@ -27,6 +27,9 @@
   "dependencies": {
     "kysely": "^0.29.2"
   },
+  "devDependencies": {
+    "@fraqjs/mock": "workspace:^"
+  },
   "engines": {
     "node": ">=22.13"
   }
