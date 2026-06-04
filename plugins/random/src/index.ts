@@ -11,3 +11,5 @@ export const RandomPlugin = definePlugin({
 });
 
 export * from './service';
+
+export default RandomPlugin;

@@ -31,3 +31,5 @@ export const KyselyPlugin = definePlugin({
 export * from './database';
 export * from './schema';
 export * from './types';
+
+export default KyselyPlugin;

@@ -12,3 +12,5 @@ export const ConversationPlugin = definePlugin({
 
 export * from './error';
 export * from './service';
+
+export default ConversationPlugin;
