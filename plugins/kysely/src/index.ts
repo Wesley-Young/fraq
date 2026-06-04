@@ -24,6 +24,7 @@ export const KyselyPlugin = definePlugin({
     ctx.provide(DatabaseService, new DatabaseService(kysely));
   },
   async start(ctx) {
+    ctx.logger.info('Migrating database schema to latest version...');
     await ctx.resolve(DatabaseService).schemas.migrateToLatest();
   },
 });
