@@ -20,6 +20,11 @@ type InstalledPlugin = {
   proxy?: Context;
 };
 
+type AppliedContextPlugins = {
+  context: Context;
+  sortedPlugins: InstalledPlugin[];
+};
+
 export interface ContextOptions {
   reconnect?: {
     initialDelayMs?: number;
@@ -244,18 +249,22 @@ and implement the dispose method to clean up resources when the context stops.
   }
 
   private async startInternal(): Promise<void> {
+    const appliedContextPlugins: AppliedContextPlugins[] = [];
+    const startingContexts: Context[] = [];
     try {
-      const sortedPlugins = this.sortPlugins();
-      await this.applyPlugins(sortedPlugins);
-      await this.startPlugins(sortedPlugins);
+      await this.recursiveApplyPlugins(appliedContextPlugins, startingContexts);
+      await this.recursiveStartPlugins(appliedContextPlugins);
     } catch (error) {
-      this.state = 'idle';
+      for (const context of startingContexts) {
+        if (context.state === 'starting') {
+          context.state = 'idle';
+        }
+      }
       throw error;
     }
-    for (const subContext of this.subContexts) {
-      await subContext.start();
+    for (const { context } of appliedContextPlugins) {
+      context.state = 'started';
     }
-    this.state = 'started';
     if (!this.parent) {
       this.eventStreamTask = this.runEventStream();
     }
@@ -346,6 +355,37 @@ and implement the dispose method to clean up resources when the context stops.
     }
   }
 
+  private async recursiveApplyPlugins(
+    appliedContextPlugins: AppliedContextPlugins[],
+    startingContexts: Context[],
+  ): Promise<void> {
+    if (this.state === 'started') {
+      return;
+    }
+    if (this.state === 'starting' && this.startPromise) {
+      await this.startPromise;
+      return;
+    }
+    if (this.state === 'stopping') {
+      throw new Error(`Context "${this.name}" cannot be started while it is stopping.`);
+    }
+    if (this.state === 'stopped') {
+      throw new Error(`Context "${this.name}" cannot be restarted after it has been stopped.`);
+    }
+    if (this.state === 'idle') {
+      this.state = 'starting';
+    }
+    startingContexts.push(this);
+
+    const sortedPlugins = this.sortPlugins();
+    await this.applyPlugins(sortedPlugins);
+    appliedContextPlugins.push({ context: this, sortedPlugins });
+
+    for (const subContext of this.subContexts) {
+      await subContext.recursiveApplyPlugins(appliedContextPlugins, startingContexts);
+    }
+  }
+
   private async startPlugins(sortedPlugins: InstalledPlugin[]): Promise<void> {
     for (const installedPlugin of sortedPlugins) {
       const { plugin } = installedPlugin;
@@ -354,6 +394,12 @@ and implement the dispose method to clean up resources when the context stops.
       }
       this.logger.debug(`Plugin ${plugin.name} is starting...`);
       await plugin.start(this.getPluginContext(installedPlugin));
+    }
+  }
+
+  private async recursiveStartPlugins(appliedContextPlugins: AppliedContextPlugins[]): Promise<void> {
+    for (const { context, sortedPlugins } of appliedContextPlugins) {
+      await context.startPlugins(sortedPlugins);
     }
   }
 

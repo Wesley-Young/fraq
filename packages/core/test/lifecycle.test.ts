@@ -1,6 +1,6 @@
 import { createMockMilkyClient } from '@fraqjs/mock';
 
-import { Context, type Disposable } from '../src';
+import { Context, type Disposable, definePlugin } from '../src';
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -85,4 +85,66 @@ test('stops child contexts before parent services and disposes services in rever
   await parent.stop();
 
   assert.deepEqual(calls, ['child', 'second', 'first', 'parent']);
+});
+
+test('applies the context tree before starting plugins from parents to children', async () => {
+  const calls: string[] = [];
+  const parent = Context.fromClient(createMockMilkyClient());
+  const child = parent.fork('child');
+
+  parent.install(
+    definePlugin({
+      name: 'parent',
+      apply() {
+        calls.push('parent apply');
+      },
+      start() {
+        calls.push('parent start');
+      },
+    }),
+  );
+  child.install(
+    definePlugin({
+      name: 'child',
+      apply() {
+        calls.push('child apply');
+      },
+      start() {
+        calls.push('child start');
+      },
+    }),
+  );
+
+  await parent.start();
+
+  assert.deepEqual(calls, ['parent apply', 'child apply', 'parent start', 'child start']);
+});
+
+test('recovers the parent context state when a child context fails to start', async () => {
+  const client = createMockMilkyClient();
+  const parent = Context.fromClient(client);
+  const child = parent.fork('child');
+  let applyCalls = 0;
+  let shouldThrow = true;
+
+  child.install(
+    definePlugin({
+      name: 'flaky-child',
+      apply() {
+        applyCalls += 1;
+        if (shouldThrow) {
+          shouldThrow = false;
+          throw new Error('boom');
+        }
+      },
+    }),
+  );
+
+  await assert.rejects(() => parent.start(), /boom/);
+  await child.start();
+  assert.equal(applyCalls, 2);
+
+  await parent.start();
+
+  assert.equal(client.startEventCalls, 1);
 });
