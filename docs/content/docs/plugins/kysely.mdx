@@ -1,0 +1,345 @@
+---
+title: '@fraqjs/plugin-kysely'
+---
+
+<NpmBadge packageName="@fraqjs/plugin-kysely" />
+
+`@fraqjs/plugin-kysely` 提供了基于 [Kysely](https://kysely.dev/) 的 SQLite 数据库服务。
+
+## 安装与配置
+
+将插件添加至 `dependencies`，然后在创建 `Context` 时引入并配置插件：
+
+```typescript
+import { KyselyPlugin } from '@fraqjs/plugin-kysely';
+
+ctx.install(KyselyPlugin, {
+  // 在这里传入 KyselyPlugin 的配置选项
+});
+```
+
+`KyselyPlugin` 有如下配置项：
+
+- `sqliteUrl`：SQLite 数据库的连接 URL，例如 `file:./my-database.sqlite` 或 `:memory:`。
+- `nodeSqliteOptions`：可选的数据库连接选项，除了 `open` 选项之外的其他选项都会被传递给 `DatabaseSync` 的构造函数，详见 [Node.js 官方文档](https://nodejs.org/api/sqlite.html#new-databasesyncpath-options)。
+
+如果你是插件开发者，请将本插件添加到项目的 `peerDependencies` 中，并在自己的插件中声明依赖：
+
+```typescript
+import { definePlugin } from '@fraqjs/fraq';
+import { DatabaseService } from '@fraqjs/plugin-kysely';
+
+definePlugin({
+  name: 'my-plugin',
+  inject: {
+    db: DatabaseService,
+  },
+  apply(ctx) {
+    // 使用 ctx.db 来访问 DatabaseService
+  },
+});
+```
+
+此外，你还需要将 `kysely` 添加到 `dependencies` 中，以便使用其中的类型定义。
+
+## Node.js 兼容性
+
+`@fraqjs/plugin-kysely` 依赖 `node:sqlite` 来提供数据库功能。此模块在不同 LTS 版本的支持情况如下：
+
+| Node.js 版本                 | 支持情况                                              |
+| ---------------------------- | ----------------------------------------------------- |
+| `<22.5.0`                    | 不支持                                                |
+| `22.5.0 <=` 版本 `< 22.13.0` | 支持，需要通过启动参数 `--experimental-sqlite` 来启用 |
+| `>= 22.13.0`                 | 支持，不再需要额外启动参数                            |
+
+在低于 `22.5.0` 的 Node.js 版本中将无法使用此插件。`package.json` 中声明的 `engine.node` 字段为 `>=22.13`，在低于这一版本的 Node.js 环境中安装时会有警告提示，但并不会阻止安装。
+
+## 声明数据结构
+
+`@fraqjs/plugin-kysely` 包含了一个类型 `FraqDatabase`，你可以通过[声明合并（Declaration Merging）](https://www.typescriptlang.org/docs/handbook/declaration-merging.html)来扩展它，以声明你的数据表结构。
+
+Kysely 提供了一个 [Getting Started](https://kysely.dev/docs/getting-started) 指南（英文），你可以在它的 “Types“ 章节中找到关于如何声明数据表的示例。在这里，我们将介绍翻译成中文，并且稍微调整了一下示例代码以适应 Fraq 的插件开发。
+
+```typescript
+import type {
+  ColumnType,
+  Generated,
+  Insertable,
+  JSONColumnType,
+  Selectable,
+  Updateable,
+} from 'kysely';
+
+// 这个接口描述了 `person` 表的结构。
+// Table 接口应该只在上面的 `FraqDatabase` 类型中使用，永远不要作为查询的结果类型！
+// 请参见下面的 `Person`、`NewPerson` 和 `PersonUpdate` 类型。
+export interface PersonTable {
+  // Generated<T> 是一个工具类型，用于标记由数据库自动生成的列，例如自增 ID 或时间戳。
+  // 被标记为 Generated 的列在插入（insert）和更新（update）操作中会被自动设为可选，
+  // 它们的值会由数据库生成，而不是由用户提供。
+  id: Generated<number>;
+
+  first_name: string;
+  gender: 'man' | 'woman' | 'other';
+
+  // 如果数据库中的列是可空（nullable）的，那么在这里也应该将其类型设为可空。
+  // 不要使用可选属性（last_name?: string），
+  // Kysely 会自动根据数据库的定义来确定属性是否可选。
+  last_name: string | null;
+
+  // 可以使用 `ColumnType<SelectType, InsertType, UpdateType>`
+  // 来为每种操作（查询、插入和更新）指定不同的类型。
+  // 在这里，我们定义了一个 `created_at` 列：
+  // - 在查询时被选为 `string` 类型；
+  // - 在插入时可以可选地提供为 `string` 类型；
+  // - 在更新时永远不能提供（即 `never`）。
+  created_at: ColumnType<string, string | undefined, never>;
+
+  // 可以使用 `JSONColumnType` 来声明 JSON 列。
+  // 这是 `ColumnType<T, string, string>` 的简写：
+  // - T 是从数据库中检索到的 JSON 对象/数组的类型；
+  // - 插入和更新类型始终为 `string`，因为在插入和更新时总会序列化成字符串。
+  // 这里我们定义了一个 `metadata` 列，它在查询时被 `select` 成一个对象，
+  // 在插入和更新时被选为 `string` 类型（即 JSON 字符串）。
+  metadata: JSONColumnType<{
+    login_at: string;
+    ip: string | null;
+    agent: string | null;
+    plan: 'free' | 'premium';
+  }>;
+}
+
+// 永远不要直接使用 `PersonTable` 作为查询结果的类型；应该使用：
+// - `Selectable<PersonTable>` 作为查询结果的类型；
+// - `Insertable<PersonTable>` 作为插入操作的参数类型；
+// - `Updateable<PersonTable>` 作为更新操作的参数类型。
+// 这些工具类型会根据 `PersonTable` 中定义的列类型来正确地推断出每种操作的类型。
+//
+// 大多数时候你应该完全信任类型推断，而不需要使用显式的类型。
+// 这些类型在为函数参数添加类型注解时可能会很有用。
+export type Person = Selectable<PersonTable>;
+export type NewPerson = Insertable<PersonTable>;
+export type PersonUpdate = Updateable<PersonTable>;
+
+// 使用声明合并（Declaration Merging）来扩展 `FraqDatabase` 类型，
+// 以包含我们定义的 `my_plugin_person` 表。
+// 一般情况下，用插件名称作为表名前缀是个不错的选择，以免与其他插件定义的表发生冲突。
+declare module '@fraqjs/plugin-kysely' {
+  interface FraqDatabase {
+    my_plugin_person: PersonTable;
+  }
+}
+```
+
+## 迁移 (Migration)
+
+我们刚刚定义了数据库的模式（Schema），也就是说它应该包含哪些表以及每个表有哪些列。但这些工作都是在 TypeScript 类型系统中完成的，并不会自动同步到实际的数据库中。
+
+不能单从字面意思理解“迁移”这个词。它并不是指数据从一个数据库到另一个数据库的迁移，而是指数据库模式（Schema）的迁移。具体来说，它主要包含以下两种过程：
+
+- 当新增一个表时，创建这个表；
+- 当修改了表的结构（例如新增字段、重命名字段、删除字段等）时，更新表的结构以匹配新的定义。
+
+Schema 本身只存在于类型系统，并且 Fraq 也无法比对不同版本的插件之间 Schema 是否发生了变化，因此 Fraq 选择让插件开发者来编写迁移脚本，以便在插件更新时执行这些脚本来同步数据库的结构。为此，`DatabaseService` 提供了一个 `schemas` 属性，插件需要在 `apply` 阶段调用其中的方法来注册 Schema 和迁移脚本。
+
+### 创建数据表
+
+以上面定义的数据结构为例，我们需要编写一个迁移脚本来创建 `my_plugin_person` 表：
+
+```typescript
+import { sql } from 'kysely';
+
+ctx.db.schemas.register({
+  name: 'my_plugin_schema',
+  migrations: {
+    '001_create_person_table': {
+      async up(kysely) {
+        await kysely.schema
+          .createTable('my_plugin_person')
+          .addColumn('id', 'integer', (col) => col.primaryKey())
+          .addColumn('first_name', 'text', (col) => col.notNull())
+          .addColumn('last_name', 'text')
+          .addColumn('gender', 'text', (col) => col.notNull())
+          .addColumn('created_at', 'text', (col) =>
+            col.defaultTo(sql`CURRENT_TIMESTAMP`).notNull(),
+          )
+          .addColumn('metadata', 'text', (col) => col.notNull())
+          .execute();
+      },
+    },
+  },
+});
+```
+
+从代码中可以看到，迁移脚本具有一个名称和一个 `up` 函数：
+
+- 迁移脚本的名称应该具有一定的语义，以便在查看数据库的迁移历史时能够清晰地了解每个迁移脚本的作用。另外，以 `001`、`002` 等数字开头的命名方式是个好习惯，因为它可以帮助我们更清晰地了解迁移脚本的执行顺序。
+- 迁移脚本的 `up` 函数会在迁移时被调用，并且会接收一个 Kysely 实例作为参数，以便在其中执行迁移所需的数据库操作。
+
+此外，迁移脚本还接受一个可选的 `down` 函数，用于在需要回滚迁移时执行相应的操作。目前 `@fraqjs/plugin-kysely` 没有支持回滚迁移的计划。
+
+数据库是极其脆弱且重要的组件，错误的迁移脚本可能会导致数据丢失或损坏。因此，在编写和执行迁移脚本时务必小心谨慎，并且在生产环境中执行之前一定要在测试环境中充分测试。
+
+### 更改数据表结构
+
+当插件升级并且数据表结构发生变化时，不要修改已经发布过的迁移脚本，而是追加新的迁移脚本。例如，如果我们在新版本中给 `PersonTable` 增加一个可空的 `nickname` 字段：
+
+```typescript
+export interface PersonTable {
+  id: Generated<number>;
+  first_name: string;
+  // 新增的字段应当尽量定义为可空
+  nickname: string | null;
+  gender: 'man' | 'woman' | 'other';
+  last_name: string | null;
+  created_at: ColumnType<string, string | undefined, never>;
+  metadata: JSONColumnType<{
+    login_at: string;
+    ip: string | null;
+    agent: string | null;
+    plan: 'free' | 'premium';
+  }>;
+}
+```
+
+对应的迁移注册应该保留原来的 `001_create_person_table`，并在它后面追加一个新的迁移：
+
+```typescript
+ctx.db.schemas.register({
+  name: 'my_plugin_schema',
+  migrations: {
+    // 上面已经发布过的 001_create_person_table 迁移脚本
+    '002_add_person_nickname': {
+      async up(kysely) {
+        await kysely.schema
+          .alterTable('my_plugin_person')
+          .addColumn('nickname', 'text')
+          .execute();
+      },
+    },
+  },
+});
+```
+
+`DatabaseService` 对迁移状态的记录完全基于你提供的脚本名。假设一个数据库已经执行过脚本 `001_create_person_table`，那么在插件更新后，`DatabaseService` 会从 `001` 的下一个脚本开始执行迁移；在这个例子中，它会执行 `002_add_person_nickname`。
+
+{/* prettier-ignore */}
+<Callout>
+你可能会注意到 `up` 接受的 `kysely` 实例是 `Kysely<any>` 而非 `Kysely<FraqDatabase>`，但这正是迁移脚本所希望看到的类型。迁移脚本是 “frozen in time” 的，一旦创建后就不会变动，因此也不应该依赖于任何可能会随着时间变化的类型定义（例如 `FraqDatabase`），而应该使用一个通用的 `Kysely<any>` 类型，来确保迁移脚本不会因为类型变化而引发编译错误。
+
+当然，这样做也有一个显而易见的弊端，那就是在迁移脚本中我们将失去类型安全的保障，因此在编写迁移脚本时需要格外小心，确保所有的表名、列名和数据类型都正确无误。
+
+</Callout>
+{/* prettier-ignore-end */}
+
+{/* prettier-ignore */}
+<Callout type="error">
+**永远不要修改已经发布过的迁移脚本**！如果需要更改数据库，请一定在之前的迁移脚本后面追加新的迁移脚本。修改已经发布过的迁移脚本会导致数据库迁移状态混乱，可能会导致数据丢失或损坏。
+</Callout>
+{/* prettier-ignore-end */}
+
+## 操作数据表
+
+完成表结构声明和迁移注册之后，`DatabaseService` 会在应用启动时自动完成迁移工作，随后就可以通过 `ctx.db.kysely` 来访问 Kysely 实例，并使用它来执行各种数据库操作了。下面介绍一些基本的 CRUD 操作，你可以查看 Kysely 文档的 [Examples](https://kysely.dev/docs/category/examples) 章节来了解更多用法。
+
+{/* prettier-ignore */}
+<Callout>
+如果你的插件在数据库中定义了新的结构，同时又希望外界能够对这些数据进行查询或修改，不要直接暴露这些表，而应把这些操作封装成一个新的 `Service`，在其中使用 `ctx.db.kysely` 来访问数据库，并且使用 `provides` 属性和 `ctx.provide` 来提供这个服务。
+</Callout>
+{/* prettier-ignore-end */}
+
+### 插入 (INSERT) 数据
+
+```typescript
+await ctx.db.kysely
+  .insertInto('my_plugin_person')
+  .values({
+    first_name: 'Alice',
+    nickname: null,
+    last_name: null,
+    gender: 'woman',
+    metadata: JSON.stringify({
+      login_at: new Date().toISOString(),
+      ip: null,
+      agent: null,
+      plan: 'free',
+    }),
+  })
+  .executeTakeFirst();
+```
+
+在上面的例子中，`id` 和 `created_at` 都不需要提供：`id` 是 `Generated<number>`，`created_at` 的插入类型是 `string | undefined`，并且迁移脚本已经为它设置了默认值；`metadata` 在 SQLite 中使用 `text` 列保存，因此插入时使用了 `JSON.stringify()`。如果你的插件希望在查询后直接得到对象，可以在业务服务中统一封装序列化和反序列化逻辑。
+
+### 查询 (SELECT) 数据
+
+```typescript
+const person = await ctx.db.kysely
+  .selectFrom('my_plugin_person')
+  .select(['id', 'first_name', 'nickname', 'last_name', 'gender', 'created_at'])
+  .where('first_name', '=', 'Alice')
+  .executeTakeFirst();
+
+if (person) {
+  console.log(person.id, person.first_name);
+}
+```
+
+如果你确定查询结果必须存在，可以使用 `executeTakeFirstOrThrow()`：
+
+```typescript
+const person = await ctx.db.kysely
+  .selectFrom('my_plugin_person')
+  .select(['id', 'first_name'])
+  .where('id', '=', 1)
+  .executeTakeFirstOrThrow();
+```
+
+### 更新 (UPDATE) 数据
+
+```typescript
+await ctx.db.kysely
+  .updateTable('my_plugin_person')
+  .set({
+    nickname: 'Ali',
+    last_name: 'Liddell',
+  })
+  .where('id', '=', 1)
+  .executeTakeFirst();
+```
+
+`PersonTable` 中的 `created_at` 被声明为 `ColumnType<string, string | undefined, never>`，因此 TypeScript 会阻止你在更新时修改它。
+
+### 删除 (DELETE) 数据
+
+```typescript
+await ctx.db.kysely
+  .deleteFrom('my_plugin_person')
+  .where('id', '=', 1)
+  .executeTakeFirst();
+```
+
+## 事务 (Transaction)
+
+如果多个操作必须同时成功或同时失败，可以使用 Kysely 的事务（Transaction）功能：
+
+```typescript
+await ctx.db.kysely.transaction().execute(async (trx) => {
+  const result = await trx
+    .insertInto('my_plugin_person')
+    .values({
+      first_name: 'Bob',
+      nickname: null,
+      last_name: null,
+      gender: 'man',
+      metadata: JSON.stringify({
+        login_at: new Date().toISOString(),
+        ip: null,
+        agent: null,
+        plan: 'free',
+      }),
+    })
+    .executeTakeFirst();
+
+  console.log(result.insertId);
+});
+```
