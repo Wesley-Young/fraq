@@ -92,7 +92,9 @@ definePlugin({
 });
 ```
 
-但建议不要定义过多的参数，以免让用户在安装插件时感到困惑。通常来说，接受一个配置对象作为参数是比较常见和合理的做法。
+但建议不要定义过多的参数，以免让用户在安装插件时感到困惑。
+
+强烈建议接受一个配置对象作为参数，并且所有的配置项都是 **JSON 可序列化**的类型。
 
 </Callout>
 {/* prettier-ignore-end */}
@@ -215,7 +217,9 @@ class DisposableService implements Disposable {
 
 {/* prettier-ignore */}
 <Callout type="warn">
-[`esnext.disposable.d.ts`](https://github.com/microsoft/TypeScript/blob/main/src/lib/esnext.disposable.d.ts) 也提供了一个 `Disposable` 接口，但其声明与 Fraq 的 `Disposable` 接口不同。`ESNext` 的 `Disposable` 接口声明如下：
+[`esnext.disposable.d.ts`](https://github.com/microsoft/TypeScript/blob/main/src/lib/esnext.disposable.d.ts) 也提供了一个 `Disposable` 接口，但其声明与 Fraq 的 `Disposable` 接口不同。
+
+`ESNext` 的 `Disposable` 接口声明如下：
 
 ```typescript
 interface Disposable {
@@ -231,3 +235,16 @@ interface Disposable {
 {/* prettier-ignore-end */}
 
 那么在 `Context` 卸载 `DisposableService` 时，控制台会输出 `Service is being disposed`。关于 `Context` 生命周期结束时的行为，请见[上下文 (Context)](./digging/context.mdx#停止-context) 中的介绍。
+
+## `start` 方法
+
+插件还可以定义一个可选的 `start` 方法，这个方法会在所有插件都被加载和初始化之后被调用。`start` 方法通常用于执行一些需要**在所有插件都准备好之后**才能执行的操作。`Context` 会在所有插件的 `apply` 方法都被调用之后，按照与调用 `apply` 方法相同的顺序来调用插件的 `start` 方法。
+
+{/* prettier-ignore */}
+<Callout>
+不要滥用 `start` 方法，只有在确实需要在所有插件都准备好之后才能执行的操作才应该放在 `start` 方法中。大多数情况下，你应该把插件的逻辑放在 `apply` 方法中，这样可以更好地利用 Fraq 的依赖注入机制，并且让插件的加载和初始化过程更加清晰和可预测。
+
+为了防止滥用，`start` 方法只接受一个 `Context` 参数，而不会接受与 `apply` 方法相同的用户配置参数。
+
+</Callout>
+{/* prettier-ignore-end */}
