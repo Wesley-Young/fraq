@@ -18,7 +18,7 @@ export const KyselyPlugin = definePlugin({
   apply(ctx, options: KyselyPluginOptions) {
     const kysely = new Kysely<FraqDatabase>({
       dialect: new SqliteDialect({
-        database: new NodeSqliteDatabaseAdapter(new DatabaseSync(options.sqliteUrl, options.nodeSqliteOptions)),
+        database: new NodeSqliteDatabaseAdapter(new DatabaseSync(options.sqliteUrl, options.nodeSqliteOptions ?? {})),
       }),
     });
     ctx.provide(DatabaseService, new DatabaseService(kysely));
