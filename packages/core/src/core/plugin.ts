@@ -25,6 +25,7 @@ export interface Plugin<
   optionalInject?: OI;
   provides?: readonly ServiceClass[];
   apply(ctx: Context & InjectedServices<I> & OptionalInjectedServices<OI>, ...args: T): void | Promise<void>;
+  start?(ctx: Context & InjectedServices<I> & OptionalInjectedServices<OI>): void | Promise<void>;
 }
 
 export function definePlugin<

@@ -17,6 +17,7 @@ type ContextState = 'idle' | 'starting' | 'started' | 'stopping' | 'stopped';
 type InstalledPlugin = {
   plugin: Plugin<ParameterList, Injection | undefined, Injection | undefined>;
   args: ParameterList;
+  proxy?: Context;
 };
 
 export interface ContextOptions {
@@ -124,14 +125,16 @@ export class Context {
       throw new Error(`Service ${service.name} has already been provided in this context.`);
     }
     if (implementsESNextDisposable(instance) && !isDisposable(instance)) {
-      throw new Error(`
+      throw new Error(
+        `
 Service ${service.name} implements ESNext Disposable but not Fraq Disposable.
 Please explicitly import the interface like this:
 
 import type { Disposable } from '@fraqjs/fraq';
 
 and implement the dispose method to clean up resources when the context stops.
-    `.trim());
+    `.trim(),
+      );
     }
     this.services.set(service, instance);
   }
@@ -242,7 +245,9 @@ and implement the dispose method to clean up resources when the context stops.
 
   private async startInternal(): Promise<void> {
     try {
-      await this.applyPlugins();
+      const sortedPlugins = this.sortPlugins();
+      await this.applyPlugins(sortedPlugins);
+      await this.startPlugins(sortedPlugins);
     } catch (error) {
       this.state = 'idle';
       throw error;
@@ -327,16 +332,28 @@ and implement the dispose method to clean up resources when the context stops.
     return predicate?.(event) === true;
   }
 
-  private async applyPlugins(): Promise<void> {
-    for (const { plugin, args } of this.sortPlugins()) {
+  private async applyPlugins(sortedPlugins: InstalledPlugin[]): Promise<void> {
+    for (const installedPlugin of sortedPlugins) {
+      const { plugin, args } = installedPlugin;
       const providedBeforeApply = new Set(this.services.keys());
       this.logger.debug(`Applying plugin ${plugin.name}`);
-      await plugin.apply(this.createProxyContextForPlugin(plugin), ...args);
+      await plugin.apply(this.getPluginContext(installedPlugin), ...args);
       for (const service of plugin.provides ?? []) {
         if (!this.services.has(service) || providedBeforeApply.has(service)) {
           throw new Error(`${plugin.name} declares service ${service.name} but did not provide it.`);
         }
       }
+    }
+  }
+
+  private async startPlugins(sortedPlugins: InstalledPlugin[]): Promise<void> {
+    for (const installedPlugin of sortedPlugins) {
+      const { plugin } = installedPlugin;
+      if (!plugin.start) {
+        continue;
+      }
+      this.logger.debug(`Plugin ${plugin.name} is starting...`);
+      await plugin.start(this.getPluginContext(installedPlugin));
     }
   }
 
@@ -457,6 +474,11 @@ and implement the dispose method to clean up resources when the context stops.
     });
 
     return new Error(`Unable to resolve plugin service dependencies: ${lines.join('; ')}.`);
+  }
+
+  private getPluginContext(installedPlugin: InstalledPlugin): Context {
+    installedPlugin.proxy ??= this.createProxyContextForPlugin(installedPlugin.plugin);
+    return installedPlugin.proxy;
   }
 
   private createProxyContextForPlugin(
