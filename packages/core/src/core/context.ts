@@ -530,7 +530,15 @@ and implement the dispose method to clean up resources when the context stops.
   private createProxyContextForPlugin(
     plugin: Plugin<ParameterList, Injection | undefined, Injection | undefined>,
   ): Context {
+    // Proxied logger with plugin name as prefix
     const proxyLogger = new Logger((message) => this.logHandler?.(message), plugin.name);
+
+    // Proxied provide method to log provided services
+    const proxyProvide = <T extends object>(service: ServiceClass<T>, instance: T): void => {
+      this.provide(service, instance);
+      this.logger.debug(`Plugin ${plugin.name} provided ${service.name}`);
+    };
+
     let proxyInjections: undefined | Record<string, object | undefined>;
     if (plugin.inject) {
       proxyInjections = {};
@@ -544,15 +552,17 @@ and implement the dispose method to clean up resources when the context stops.
         proxyInjections[key] = this.tryResolve(service);
       }
     }
+
     return new Proxy(this, {
-      get(target, prop) {
-        // proxy a logger for the plugin that prefixes messages with the plugin name
+      get(target, prop, receiver) {
         if (prop === 'logger') {
           return proxyLogger;
+        } else if (prop === 'provide') {
+          return proxyProvide;
         } else if (proxyInjections && prop in proxyInjections) {
           return proxyInjections[prop as keyof typeof proxyInjections];
         } else {
-          return target[prop as keyof Context];
+          return Reflect.get(target, prop, receiver);
         }
       },
     });
