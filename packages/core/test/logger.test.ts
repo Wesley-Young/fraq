@@ -86,7 +86,7 @@ test('plugin receives a logger proxy scoped to the plugin name', async () => {
   assert.ok(pluginLogger);
   assert.deepEqual(logs.map(snapshot), [
     {
-      level: 'info',
+      level: 'debug',
       module: 'child',
       message: 'Applying plugin plugin-logger',
       error: undefined,
@@ -95,12 +95,6 @@ test('plugin receives a logger proxy scoped to the plugin name', async () => {
       level: 'info',
       module: 'plugin-logger',
       message: 'plugin message',
-      error: undefined,
-    },
-    {
-      level: 'debug',
-      module: 'child',
-      message: 'Applied plugin plugin-logger',
       error: undefined,
     },
   ]);
