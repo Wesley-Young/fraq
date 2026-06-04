@@ -25,6 +25,9 @@ export const EchoPlugin = definePlugin({
     );
   },
 });
+
+// 推荐同时将插件进行默认导出
+export default EchoPlugin;
 ```
 
 我们可以看到，插件是一个对象，它有一个 `name` 字段和一个 `apply` 方法。`name` 用于标识插件，`apply` 会在插件被加载时被调用，并且会传入一个 `Context` 对象作为参数。在 `apply` 方法中，我们可以像之前一样定义指令、事件处理器等。
@@ -32,7 +35,7 @@ export const EchoPlugin = definePlugin({
 在安装插件时，只需要调用 `ctx.install` 方法，并传入插件对象即可：
 
 ```typescript
-import { EchoPlugin } from '...';
+import EchoPlugin from '...';
 
 ctx.install(EchoPlugin);
 ```
