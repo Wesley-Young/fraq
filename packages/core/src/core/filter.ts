@@ -1,11 +1,10 @@
 import type { EventMap } from '../protocol/endpoint';
-import type { Event } from '../protocol/types';
 
 export type Filter = {
   [K in keyof EventMap]?: (event: EventMap[K]) => boolean; // undefined 表示 () => false
 };
 
-const eventKeys: Event['event_type'][] = [
+const eventKeys = [
   'bot_offline',
   'message_receive',
   'message_recall',
@@ -27,7 +26,16 @@ const eventKeys: Event['event_type'][] = [
   'group_whole_mute',
   'group_nudge',
   'group_file_upload',
-];
+] as const;
+
+// Assert that eventKeys contains all keys of EventMap
+type AssertEventKeys = typeof eventKeys[number] extends keyof EventMap
+  ? keyof EventMap extends typeof eventKeys[number]
+    ? true
+    : never
+  : never;
+// biome-ignore lint/correctness/noUnusedVariables: This variable is used for type assertion and does not need to be referenced elsewhere in the code.
+const assertEventKeys: AssertEventKeys = true;
 
 export namespace filter {
   export function define(filter: Filter): Filter {
