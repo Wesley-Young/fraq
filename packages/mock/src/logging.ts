@@ -1,4 +1,4 @@
-import type { LogHandler } from "@fraqjs/fraq";
+import type { LogHandler } from '@fraqjs/fraq';
 
 export function createSimpleLogHandler(): LogHandler {
   return ({ time, level, module, message, error }) => {
@@ -8,5 +8,5 @@ export function createSimpleLogHandler(): LogHandler {
     if (error) {
       console.error(error);
     }
-  }
+  };
 }

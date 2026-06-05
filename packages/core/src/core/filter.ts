@@ -29,8 +29,8 @@ const eventKeys = [
 ] as const;
 
 // Assert that eventKeys contains all keys of EventMap
-type AssertEventKeys = typeof eventKeys[number] extends keyof EventMap
-  ? keyof EventMap extends typeof eventKeys[number]
+type AssertEventKeys = (typeof eventKeys)[number] extends keyof EventMap
+  ? keyof EventMap extends (typeof eventKeys)[number]
     ? true
     : never
   : never;

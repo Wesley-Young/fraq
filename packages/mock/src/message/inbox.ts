@@ -168,11 +168,7 @@ export class MockInbox {
     });
   }
 
-  tempConversationKey(options: {
-    peerId?: number;
-    senderId: number;
-    groupId?: number;
-  }): string {
+  tempConversationKey(options: { peerId?: number; senderId: number; groupId?: number }): string {
     const peerId = options.peerId ?? options.senderId;
 
     assertPositiveInteger(peerId, 'peerId');
@@ -488,7 +484,10 @@ export class MockInbox {
         break;
       case 'group':
         this.groups.set(message.group.group_id, message.group);
-        this.groupMembers.set(groupMemberKey(message.group_member.group_id, message.group_member.user_id), message.group_member);
+        this.groupMembers.set(
+          groupMemberKey(message.group_member.group_id, message.group_member.user_id),
+          message.group_member,
+        );
         break;
       case 'temp':
         if (message.group) {

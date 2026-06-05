@@ -324,7 +324,7 @@ and implement the dispose method to clean up resources when the context stops.
     }
   }
 
-  private clearTimers(){
+  private clearTimers() {
     this.timers.forEach((timeout) => {
       clearTimeout(timeout);
     });

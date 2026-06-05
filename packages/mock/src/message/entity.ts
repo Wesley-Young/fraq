@@ -43,16 +43,11 @@ export function inmsg(
   return trimBoundaryTextSegments(segments);
 }
 
-function isTextSegment(
-  segment: milky.IncomingSegment_ZodInput,
-): segment is milky.IncomingTextSegment_ZodInput {
+function isTextSegment(segment: milky.IncomingSegment_ZodInput): segment is milky.IncomingTextSegment_ZodInput {
   return segment.type === 'text';
 }
 
-function withText(
-  segment: milky.IncomingTextSegment_ZodInput,
-  text: string,
-): milky.IncomingTextSegment_ZodInput {
+function withText(segment: milky.IncomingTextSegment_ZodInput, text: string): milky.IncomingTextSegment_ZodInput {
   return {
     ...segment,
     data: {
@@ -62,9 +57,7 @@ function withText(
   };
 }
 
-function trimBoundaryTextSegments(
-  segments: milky.IncomingSegment_ZodInput[],
-): milky.IncomingSegment_ZodInput[] {
+function trimBoundaryTextSegments(segments: milky.IncomingSegment_ZodInput[]): milky.IncomingSegment_ZodInput[] {
   const result = [...segments];
   const first = result[0];
   if (first && isTextSegment(first)) {
@@ -90,9 +83,7 @@ function trimBoundaryTextSegments(
   return result;
 }
 
-function isIncomingMessage(
-  value: milky.IncomingMessage | IncomingReplySource,
-): value is milky.IncomingMessage {
+function isIncomingMessage(value: milky.IncomingMessage | IncomingReplySource): value is milky.IncomingMessage {
   return 'message_scene' in value;
 }
 
@@ -138,9 +129,7 @@ export namespace inseg {
     };
   }
 
-  export function reply(
-    source: milky.IncomingMessage | IncomingReplySource,
-  ): milky.IncomingReplySegment_ZodInput {
+  export function reply(source: milky.IncomingMessage | IncomingReplySource): milky.IncomingReplySegment_ZodInput {
     const data = isIncomingMessage(source)
       ? {
           message_seq: source.message_seq,
@@ -163,16 +152,14 @@ export namespace inseg {
     };
   }
 
-  export function image(
-    options?: {
-      resourceId?: string;
-      tempUrl?: string;
-      width?: number;
-      height?: number;
-      summary?: string;
-      subType?: 'normal' | 'sticker';
-    },
-  ): milky.IncomingImageSegment_ZodInput {
+  export function image(options?: {
+    resourceId?: string;
+    tempUrl?: string;
+    width?: number;
+    height?: number;
+    summary?: string;
+    subType?: 'normal' | 'sticker';
+  }): milky.IncomingImageSegment_ZodInput {
     return {
       type: 'image',
       data: {
@@ -186,13 +173,11 @@ export namespace inseg {
     };
   }
 
-  export function record(
-    options?: {
-      resourceId?: string;
-      tempUrl?: string;
-      duration?: number;
-    },
-  ): milky.IncomingRecordSegment_ZodInput {
+  export function record(options?: {
+    resourceId?: string;
+    tempUrl?: string;
+    duration?: number;
+  }): milky.IncomingRecordSegment_ZodInput {
     return {
       type: 'record',
       data: {
@@ -203,15 +188,13 @@ export namespace inseg {
     };
   }
 
-  export function video(
-    options?: {
-      resourceId?: string;
-      tempUrl?: string;
-      width?: number;
-      height?: number;
-      duration?: number;
-    },
-  ): milky.IncomingVideoSegment_ZodInput {
+  export function video(options?: {
+    resourceId?: string;
+    tempUrl?: string;
+    width?: number;
+    height?: number;
+    duration?: number;
+  }): milky.IncomingVideoSegment_ZodInput {
     return {
       type: 'video',
       data: {
@@ -224,14 +207,12 @@ export namespace inseg {
     };
   }
 
-  export function file(
-    options?: {
-      fileId?: string;
-      fileName?: string;
-      fileSize?: number;
-      fileHash?: string | null;
-    },
-  ): milky.IncomingFileSegment_ZodInput {
+  export function file(options?: {
+    fileId?: string;
+    fileName?: string;
+    fileSize?: number;
+    fileHash?: string | null;
+  }): milky.IncomingFileSegment_ZodInput {
     return {
       type: 'file',
       data: {
@@ -243,14 +224,12 @@ export namespace inseg {
     };
   }
 
-  export function forward(
-    options?: {
-      forwardId?: string;
-      title?: string;
-      preview?: string[];
-      summary?: string;
-    },
-  ): milky.IncomingForwardSegment_ZodInput {
+  export function forward(options?: {
+    forwardId?: string;
+    title?: string;
+    preview?: string[];
+    summary?: string;
+  }): milky.IncomingForwardSegment_ZodInput {
     return {
       type: 'forward',
       data: {
@@ -262,15 +241,13 @@ export namespace inseg {
     };
   }
 
-  export function marketFace(
-    options?: {
-      emojiPackageId?: number;
-      emojiId?: string;
-      key?: string;
-      summary?: string;
-      url?: string;
-    },
-  ): milky.IncomingMarketFaceSegment_ZodInput {
+  export function marketFace(options?: {
+    emojiPackageId?: number;
+    emojiId?: string;
+    key?: string;
+    summary?: string;
+    url?: string;
+  }): milky.IncomingMarketFaceSegment_ZodInput {
     return {
       type: 'market_face',
       data: {

@@ -83,7 +83,10 @@ function createUserProfile(userId: number): Pick<milky.FriendEntity, 'user_id' |
   };
 }
 
-function createFriendCategory(userId: number, overrides?: Partial<milky.FriendCategoryEntity>): milky.FriendCategoryEntity {
+function createFriendCategory(
+  userId: number,
+  overrides?: Partial<milky.FriendCategoryEntity>,
+): milky.FriendCategoryEntity {
   const random = createRandom('friend-category', userId);
   const categoryId = random.int(vocabulary.friend.categoryNames.length);
   const category: milky.FriendCategoryEntity = {
@@ -102,7 +105,8 @@ function createGroupBase(groupId: number): milky.GroupEntity {
   const memberCount = random.range(12, 320);
   const minCapacity = memberCount + random.range(0, 120);
   const maxMemberCount =
-    GROUP_CAPACITY_TIERS.find((capacity) => capacity >= minCapacity) ?? GROUP_CAPACITY_TIERS[GROUP_CAPACITY_TIERS.length - 1];
+    GROUP_CAPACITY_TIERS.find((capacity) => capacity >= minCapacity) ??
+    GROUP_CAPACITY_TIERS[GROUP_CAPACITY_TIERS.length - 1];
   const createdTime = random.range(GROUP_CREATED_TIME_START, GROUP_CREATED_TIME_END);
   const groupName = joinParts(
     random.pick(vocabulary.group.prefixes),
