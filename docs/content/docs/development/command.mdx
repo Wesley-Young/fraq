@@ -5,15 +5,15 @@ title: 定义指令
 在一开始的例子中，我们已经见过了一个简单的指令定义：
 
 ```typescript
-ctx.router.command(
-  'echo',
-  {
+ctx.router.command({
+  name: 'echo',
+  pattern: {
     content: param.str(),
   },
-  (session, { content }) => {
+  execute(session, { content }) {
     // ...
   },
-);
+});
 ```
 
 这段代码包含了三个要素：指令叫什么、需要什么参数、以及收到这个指令时要执行什么操作。“快速开始” 一节已经对上述代码进行了简要的拆解，下面我们将更深入地介绍 Fraq 中的指令系统的设计与使用方法。
@@ -32,9 +32,9 @@ Fraq 提供了多种参数类型来满足不同的需求：
 我们用一个例子来完整地展示一下这些参数是如何使用的：
 
 ```typescript
-ctx.router.command(
-  'foo',
-  {
+ctx.router.command({
+  name: 'foo',
+  pattern: {
     l: param.literal('hello'),
     s: param.str(),
     n: param.num(),
@@ -42,10 +42,10 @@ ctx.router.command(
     seg: param.segment('mention'),
     g: param.greedy(),
   },
-  (session, { l, s, n, u, seg, g }) => {
+  execute(session, { l, s, n, u, seg, g }) {
     // ...
   },
-);
+});
 ```
 
 满足上述指令的一个用户输入可以是：
@@ -83,11 +83,19 @@ param.str().describe('要回显的文本内容');
 ```typescript
 ctx.router
   .group('parent')
-  .command('child1', { arg1: param.str() }, (session, { arg1 }) => {
-    // Handle child1 command
+  .command({
+    name: 'child1',
+    pattern: { arg1: param.str() },
+    execute(session, { arg1 }) {
+      // Handle child1 command
+    },
   })
-  .command('child2', { arg2: param.num() }, (session, { arg2 }) => {
-    // Handle child2 command
+  .command({
+    name: 'child2',
+    pattern: { arg2: param.num() },
+    execute(session, { arg2 }) {
+      // Handle child2 command
+    },
   });
 ```
 
@@ -98,16 +106,28 @@ ctx.router
 ```typescript
 const parentGroup = ctx.router.group('parent');
 parentGroup
-  .command('child1', { arg1: param.str() }, (session, { arg1 }) => {
-    // Handle child1 command
+  .command({
+    name: 'child1',
+    pattern: { arg1: param.str() },
+    execute(session, { arg1 }) {
+      // Handle child1 command
+    },
   })
-  .command('child2', { arg2: param.num() }, (session, { arg2 }) => {
-    // Handle child2 command
+  .command({
+    name: 'child2',
+    pattern: { arg2: param.num() },
+    execute(session, { arg2 }) {
+      // Handle child2 command
+    },
   });
 
 const subGroup = parentGroup.group('sub');
-subGroup.command('child3', { arg3: param.greedy() }, (session, { arg3 }) => {
-  // Handle child3 command
+subGroup.command({
+  name: 'child3',
+  pattern: { arg3: param.greedy() },
+  execute(session, { arg3 }) {
+    // Handle child3 command
+  },
 });
 ```
 
@@ -122,15 +142,15 @@ subGroup.command('child3', { arg3: param.greedy() }, (session, { arg3 }) => {
 `ctx.router` 提供了一个名为 `rawPattern` 的方法，它允许我们直接使用一个参数模式对象从头开始匹配用户输入，而不是定义指令名称和参数类型，通过检测用户输入是否符合这个模式来决定是否调用对应的处理函数。例如，如果我们需要用户先引用（回复）一条消息，再输入指令，我们可以定义如下的 Raw Pattern：
 
 ```typescript
-ctx.router.rawPattern(
-  {
+ctx.router.rawPattern({
+  pattern: {
     reply: param.segment('reply'),
     content: param.greedy(),
   },
-  (session, { reply, content }) => {
+  execute(session, { reply, content }) {
     // ...
   },
-);
+});
 ```
 
 这样就可以通过 `reply` 来拿到用户引用的消息段信息，通过 `content` 来拿到用户输入的剩余文本信息了。这比一般的指令定义更灵活，因为它不要求用户输入一个特定的指令名称，只要输入符合模式就可以了。
@@ -150,24 +170,36 @@ tp Steve Alex       // 将玩家 Steve 传送到玩家 Alex 的位置
 ```typescript
 ctx.router
   .group('tp')
-  .rawPattern(
-    { x: param.num(), y: param.num(), z: param.num() },
-    (session, { x, y, z }) => {
+  .rawPattern({
+    pattern: {
+      x: param.num(),
+      y: param.num(),
+      z: param.num(),
+    },
+    execute(session, { x, y, z }) {
       // Handle tp with coordinates only
     },
-  )
-  .rawPattern(
-    { player: param.str(), x: param.num(), y: param.num(), z: param.num() },
-    (session, { player, x, y, z }) => {
+  })
+  .rawPattern({
+    pattern: {
+      player: param.str(),
+      x: param.num(),
+      y: param.num(),
+      z: param.num(),
+    },
+    execute(session, { player, x, y, z }) {
       // Handle tp with player and coordinates
     },
-  )
-  .rawPattern(
-    { player1: param.str(), player2: param.str() },
-    (session, { player1, player2 }) => {
+  })
+  .rawPattern({
+    pattern: {
+      player1: param.str(),
+      player2: param.str(),
+    },
+    execute(session, { player1, player2 }) {
       // Handle tp with player to player
     },
-  );
+  });
 ```
 
 {/* prettier-ignore */}
@@ -177,11 +209,17 @@ ctx.router
 ```typescript
 ctx.router
   .group('test')
-  .rawPattern({ arg: param.str() }, (session, { arg }) => {
-    // Handle test with string argument
+  .rawPattern({
+    pattern: { arg: param.str() },
+    execute(session, { arg }) {
+      // Handle test with string argument
+    },
   })
-  .rawPattern({ arg: param.num() }, (session, { arg }) => {
-    // Handle test with number argument
+  .rawPattern({
+    pattern: { arg: param.num() },
+    execute(session, { arg }) {
+      // Handle test with number argument
+    },
   });
 ```
 
@@ -210,8 +248,12 @@ const adminRouter = ctx.router.filter(
     session.raw.group_member.role !== 'member',
 );
 
-adminRouter.command('admincmd', { arg: param.str() }, (session, { arg }) => {
-  // This command can only be triggered by group owner and administrators
+adminRouter.command({
+  name: 'admincmd',
+  pattern: { arg: param.str() },
+  execute(session, { arg }) {
+    // This command can only be triggered by group owner and administrators
+  },
 });
 ```
 

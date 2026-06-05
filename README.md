@@ -11,16 +11,16 @@
 用声明式的参数定义机器人指令，利用 TypeScript 自动推断用户输入和处理函数的类型。
 
 ```typescript
-ctx.command(
-  "foo",
-  {
+ctx.router.command({
+  name: "foo",
+  pattern: {
     bar: param.str(),
     baz: param.num(),
   },
-  (session, { bar, baz }) => {
+  execute(session, { bar, baz }) {
     // bar: string, baz: number
   },
-);
+});
 ```
 
 ### 直观的消息构建

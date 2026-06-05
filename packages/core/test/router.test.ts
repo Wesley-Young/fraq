@@ -48,8 +48,12 @@ test('dispatches a command and captures typed parameters', async () => {
   const router = new Router();
   const calls: Array<{ count: number; label: string }> = [];
 
-  router.command('add', { count: param.num(), label: param.str() }, (_session, params) => {
-    calls.push(params);
+  router.command({
+    name: 'add',
+    pattern: { count: param.num(), label: param.str() },
+    execute(_session, params) {
+      calls.push(params);
+    },
   });
 
   const handled = await dispatch(router, [text('add 3 apples')]);
@@ -62,8 +66,12 @@ test('does not dispatch a command when trailing tokens remain', async () => {
   const router = new Router();
   let called = false;
 
-  router.command('ping', {}, () => {
-    called = true;
+  router.command({
+    name: 'ping',
+    pattern: {},
+    execute() {
+      called = true;
+    },
   });
 
   const handled = await dispatch(router, [text('ping extra')]);
@@ -76,8 +84,12 @@ test('greedy command parameter captures the remaining text', async () => {
   const router = new Router();
   let captured = '';
 
-  router.command('say', { content: param.greedy() }, (_session, params) => {
-    captured = params.content;
+  router.command({
+    name: 'say',
+    pattern: { content: param.greedy() },
+    execute(_session, params) {
+      captured = params.content;
+    },
   });
 
   const handled = await dispatch(router, [text('say hello   world')]);
@@ -90,11 +102,19 @@ test('tries later routes after a command pattern fails', async () => {
   const router = new Router();
   const calls: string[] = [];
 
-  router.command('pick', { value: param.num() }, () => {
-    calls.push('number');
+  router.command({
+    name: 'pick',
+    pattern: { value: param.num() },
+    execute() {
+      calls.push('number');
+    },
   });
-  router.command('pick', { value: param.str() }, (_session, params) => {
-    calls.push(params.value);
+  router.command({
+    name: 'pick',
+    pattern: { value: param.str() },
+    execute(_session, params) {
+      calls.push(params.value);
+    },
   });
 
   const handled = await dispatch(router, [text('pick blue')]);
@@ -107,8 +127,12 @@ test('dispatches grouped commands after matching the group prefix', async () => 
   const router = new Router();
   let captured = 0;
 
-  router.group('admin').command('ban', { userId: param.num() }, (_session, params) => {
-    captured = params.userId;
+  router.group('admin').command({
+    name: 'ban',
+    pattern: { userId: param.num() },
+    execute(_session, params) {
+      captured = params.userId;
+    },
   });
 
   const handled = await dispatch(router, [text('admin ban 42')]);
@@ -121,11 +145,19 @@ test('matches the first dispatchable branch without running its handler', () => 
   const router = new Router();
   const calls: string[] = [];
 
-  router.command('pick', { value: param.num() }, () => {
-    calls.push('number');
+  router.command({
+    name: 'pick',
+    pattern: { value: param.num() },
+    execute() {
+      calls.push('number');
+    },
   });
-  router.command('pick', { value: param.str() }, () => {
-    calls.push('string');
+  router.command({
+    name: 'pick',
+    pattern: { value: param.str() },
+    execute() {
+      calls.push('string');
+    },
   });
 
   const raw = message([text('pick blue')]);
@@ -141,7 +173,11 @@ test('matches the first dispatchable branch without running its handler', () => 
 test('matches grouped branches with their group path', () => {
   const router = new Router();
 
-  router.group('admin').command('ban', { userId: param.num() }, () => {});
+  router.group('admin').command({
+    name: 'ban',
+    pattern: { userId: param.num() },
+    execute() {},
+  });
 
   const raw = message([text('admin ban 42')]);
   const match = router.match(session(raw), raw);
@@ -164,8 +200,12 @@ test('runs filtered routes only when the predicate accepts the session', async (
 
   router
     .filter((session) => session.raw.sender_id === 7)
-    .command('secret', {}, () => {
-      calls.push('secret');
+    .command({
+      name: 'secret',
+      pattern: {},
+      execute() {
+        calls.push('secret');
+      },
     });
 
   const rejected = message([text('secret')]);
@@ -179,10 +219,12 @@ test('runs filtered routes only when the predicate accepts the session', async (
 test('lists branches that can pass session filters', () => {
   const router = new Router();
 
-  router.command('ping', {}, () => {});
-  router.group('admin').command('ban', { userId: param.num() }, () => {});
-  router.filter((session) => session.raw.sender_id === 7).command('secret', {}, () => {});
-  router.filter((session) => session.raw.sender_id === 8).rawPattern({ content: param.greedy() }, () => {});
+  router.command({ name: 'ping', pattern: {}, execute() {} });
+  router.group('admin').command({ name: 'ban', pattern: { userId: param.num() }, execute() {} });
+  router.filter((session) => session.raw.sender_id === 7).command({ name: 'secret', pattern: {}, execute() {} });
+  router
+    .filter((session) => session.raw.sender_id === 8)
+    .rawPattern({ pattern: { content: param.greedy() }, execute() {} });
 
   const raw = message([text('anything')]);
   const branches = router.branches(session({ ...raw, sender_id: 7 }));
@@ -206,8 +248,11 @@ test('dispatches raw patterns without a command prefix', async () => {
   const router = new Router();
   let captured = '';
 
-  router.rawPattern({ content: param.greedy() }, (_session, params) => {
-    captured = params.content;
+  router.rawPattern({
+    pattern: { content: param.greedy() },
+    execute(_session, params) {
+      captured = params.content;
+    },
   });
 
   const handled = await dispatch(router, [text('anything goes here')]);
@@ -219,8 +264,11 @@ test('dispatches raw patterns without a command prefix', async () => {
 test('rejects empty raw patterns and literal-first raw patterns', () => {
   const router = new Router();
 
-  assert.throws(() => router.rawPattern({}, () => {}), /at least one parameter/);
-  assert.throws(() => router.rawPattern({ start: param.literal('hello') }, () => {}), /cannot be a literal/);
+  assert.throws(() => router.rawPattern({ pattern: {}, execute() {} }), /at least one parameter/);
+  assert.throws(
+    () => router.rawPattern({ pattern: { start: param.literal('hello') }, execute() {} }),
+    /cannot be a literal/,
+  );
 });
 
 test('captures non-text segments with segment parameters', async () => {
@@ -228,8 +276,12 @@ test('captures non-text segments with segment parameters', async () => {
   const target = mention(42, 'alice');
   let captured: milky.IncomingMentionSegment | undefined;
 
-  router.command('poke', { target: param.segment('mention') }, (_session, params) => {
-    captured = params.target;
+  router.command({
+    name: 'poke',
+    pattern: { target: param.segment('mention') },
+    execute(_session, params) {
+      captured = params.target;
+    },
   });
 
   const handled = await dispatch(router, [text('poke'), target]);
@@ -242,8 +294,12 @@ test('does not let greedy capture span across non-text segments', async () => {
   const router = new Router();
   let called = false;
 
-  router.command('say', { content: param.greedy() }, () => {
-    called = true;
+  router.command({
+    name: 'say',
+    pattern: { content: param.greedy() },
+    execute() {
+      called = true;
+    },
   });
 
   const handled = await dispatch(router, [text('say hello'), mention(42)]);

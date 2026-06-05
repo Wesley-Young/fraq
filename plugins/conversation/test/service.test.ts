@@ -17,22 +17,33 @@ test('open resolves when a later message matches its temporary router', async ()
   let resultPromise: Promise<'origin' | 'answer' | null> | undefined;
   let answerSeq: number | undefined;
 
-  conversation.command('ask', {}, (_session, _params, { open }) => {
-    resultPromise = open<'origin' | 'answer'>(
-      ({ router, done }) => {
-        router.command('ask', {}, () => {
-          done('origin');
-        });
-        router.command('yes', {}, async (answerSession) => {
-          answerSeq = answerSession.raw.message_seq;
-          await answerSession.reply(msg`accepted`);
-          done('answer');
-        });
-      },
-      { timeout: 1000 },
-    );
+  conversation.command({
+    name: 'ask',
+    pattern: {},
+    execute(_session, _params, { open }) {
+      resultPromise = open<'origin' | 'answer'>(
+        ({ router, done }) => {
+          router.command({
+            name: 'ask',
+            pattern: {},
+            execute() {
+              done('origin');
+            },
+          });
+          router.command({
+            name: 'yes',
+            pattern: {},
+            async execute(answerSession) {
+              answerSeq = answerSession.raw.message_seq;
+              await answerSession.reply(msg`accepted`);
+              done('answer');
+            },
+          });
+        },
+        { timeout: 1000 },
+      );
+    },
   });
-
   await ctx.start();
   await client.receiveFriend({ userId: 1 }, inmsg`ask`);
   await tick();
@@ -60,18 +71,26 @@ test('open tracks active conversations independently by sender, scene, and peer'
   const conversation = new ConversationService(ctx, { defaultTimeout: 1000 });
   const results = new Map<number, Promise<number | null>>();
 
-  conversation.command('ask', {}, (session, _params, { open }) => {
-    results.set(
-      session.raw.sender_id,
-      open<number>(
-        ({ router, done }) => {
-          router.command('yes', {}, (answerSession) => {
-            done(answerSession.raw.sender_id);
-          });
-        },
-        { timeout: 1000 },
-      ),
-    );
+  conversation.command({
+    name: 'ask',
+    pattern: {},
+    execute(session, _params, { open }) {
+      results.set(
+        session.raw.sender_id,
+        open<number>(
+          ({ router, done }) => {
+            router.command({
+              name: 'yes',
+              pattern: {},
+              execute(answerSession) {
+                done(answerSession.raw.sender_id);
+              },
+            });
+          },
+          { timeout: 1000 },
+        ),
+      );
+    },
   });
 
   await ctx.start();
@@ -92,10 +111,14 @@ test('open resolves null when the conversation times out', async () => {
   const conversation = new ConversationService(ctx, { defaultTimeout: 1 });
   let resultPromise: Promise<boolean | null> | undefined;
 
-  conversation.command('ask', {}, (_session, _params, { open }) => {
-    resultPromise = open<boolean>(({ router }) => {
-      router.command('yes', {}, () => {});
-    });
+  conversation.command({
+    name: 'ask',
+    pattern: {},
+    execute(_session, _params, { open }) {
+      resultPromise = open<boolean>(({ router }) => {
+        router.command({ name: 'yes', pattern: {}, execute() {} });
+      });
+    },
   });
 
   await ctx.start();
@@ -117,14 +140,18 @@ test('requires defaultTimeout and timeout to be positive finite numbers', async 
   const conversation = new ConversationService(ctx);
   let resultPromise: Promise<boolean | null> | undefined;
 
-  conversation.command('ask', {}, (_session, _params, { open }) => {
-    resultPromise = open<boolean>(
-      ({ router }) => {
-        router.command('yes', {}, () => {});
-      },
-      { timeout: Number.POSITIVE_INFINITY },
-    );
-    resultPromise.catch(() => {});
+  conversation.command({
+    name: 'ask',
+    pattern: {},
+    execute(_session, _params, { open }) {
+      resultPromise = open<boolean>(
+        ({ router }) => {
+          router.command({ name: 'yes', pattern: {}, execute() {} });
+        },
+        { timeout: Number.POSITIVE_INFINITY },
+      );
+      resultPromise.catch(() => {});
+    },
   });
 
   await ctx.start();
@@ -142,14 +169,21 @@ test('active conversation handles a repeated triggering command without dispatch
   let prompts = 0;
   let resultPromise: Promise<string | null> | undefined;
 
-  conversation.command('天气', {}, async (session, _params, { open }) => {
-    prompts += 1;
-    await session.reply(msg`请输入城市`);
-    resultPromise = open<string>(({ router, done }) => {
-      router.rawPattern({ city: param.greedy() }, (_answerSession, { city }) => {
-        done(city);
+  conversation.command({
+    name: '天气',
+    pattern: {},
+    async execute(session, _params, { open }) {
+      prompts += 1;
+      await session.reply(msg`请输入城市`);
+      resultPromise = open<string>(({ router, done }) => {
+        router.rawPattern({
+          pattern: { city: param.greedy() },
+          execute(_answerSession, { city }) {
+            done(city);
+          },
+        });
       });
-    });
+    },
   });
 
   await ctx.start();

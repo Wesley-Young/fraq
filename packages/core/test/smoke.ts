@@ -14,8 +14,12 @@ const EchoPlugin = definePlugin({
       trailingFaceId: number;
     },
   ) {
-    ctx.router.command('echo', { command: param.greedy() }, (session, { command }) => {
-      session.reply(msg`You said: ${command} ${seg.face(options.trailingFaceId)}`);
+    ctx.router.command({
+      name: 'echo',
+      pattern: { command: param.greedy() },
+      execute(session, { command }) {
+        session.reply(msg`You said: ${command} ${seg.face(options.trailingFaceId)}`);
+      },
     });
   },
 });

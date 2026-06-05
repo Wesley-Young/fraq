@@ -23,6 +23,12 @@ export interface ConversationCommandScope {
   ): Promise<R | null>;
 }
 
+export interface ConversationCommand<P extends Pattern> {
+  name: string;
+  pattern: P;
+  execute(session: Session, params: ParamsOf<P>, scope: ConversationCommandScope): void | Promise<void>;
+}
+
 export interface ConversationContext<R> {
   session: Session;
   router: Router;
@@ -113,25 +119,26 @@ export class ConversationService {
     });
   }
 
-  command<P extends Pattern>(
-    name: string,
-    pattern: P,
-    handler: (session: Session, params: ParamsOf<P>, scope: ConversationCommandScope) => void | Promise<void>,
-  ): this {
+  command<P extends Pattern>(command: ConversationCommand<P>): this {
     let branch: RouteBranch | undefined;
-    this.router.command(name, pattern, (session, params) => {
-      const registeredBranch = branch;
-      if (!registeredBranch) {
-        throw new Error(`Conversation command "${name}" was not registered correctly.`);
-      }
-      return handler(session, params, {
-        open: (conversationHandler, options) =>
-          this.openFromCommand(session, registeredBranch, conversationHandler, options),
-      });
+    const service = this;
+    this.router.command({
+      name: command.name,
+      pattern: command.pattern,
+      execute(session, params) {
+        const registeredBranch = branch;
+        if (!registeredBranch) {
+          throw new Error(`Conversation command "${command.name}" was not registered correctly.`);
+        }
+        return command.execute(session, params, {
+          open: (conversationHandler, options) =>
+            service.openFromCommand(session, registeredBranch, conversationHandler, options),
+        });
+      },
     });
     const entry = this.router.routes().at(-1);
     if (entry?.type !== 'command') {
-      throw new Error(`Conversation command "${name}" was not registered correctly.`);
+      throw new Error(`Conversation command "${command.name}" was not registered correctly.`);
     }
     branch = { type: 'command', path: [], command: entry.command };
     return this;
@@ -216,7 +223,7 @@ export class ConversationService {
       return;
     }
     try {
-      await match.command.handler(session, match.params);
+      await match.command.execute(session, match.params);
     } catch (error) {
       this.ctx.logger.error(
         `Error routing conversation command (scene=${session.raw.message_scene} peer=${session.raw.peer_id} sender=${session.raw.sender_id} seq=${session.raw.message_seq})`,

@@ -116,8 +116,12 @@ test('session replies through the client API', async () => {
     },
   ];
 
-  ctx.router.command('ping', {}, (session) => {
-    return session.reply(replyMessage);
+  ctx.router.command({
+    name: 'ping',
+    pattern: {},
+    execute(session) {
+      return session.reply(replyMessage);
+    },
   });
 
   await ctx.start();

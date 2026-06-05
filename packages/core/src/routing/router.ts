@@ -5,33 +5,33 @@ import { Tokenizer } from './tokenizer';
 
 export type Pattern = Record<string, Parameter<any>>;
 export type ParamsOf<P extends Pattern> = { [K in keyof P]: P[K] extends Parameter<infer T> ? T : never };
-export type Handler<P extends Pattern> = (session: Session, params: ParamsOf<P>) => void | Promise<void>;
+export type Executor<P extends Pattern> = (session: Session, params: ParamsOf<P>) => void | Promise<void>;
 export type SessionPredicate = (session: Session) => boolean;
 
-export interface Command {
+export interface Command<P extends Pattern> {
   name: string;
-  pattern: Pattern;
-  handler: (session: Session, params: any) => void | Promise<void>;
+  pattern: P;
+  execute: Executor<P>;
 }
 
-export interface RawPattern {
-  pattern: Pattern;
-  handler: (session: Session, params: any) => void | Promise<void>;
+export interface RawPattern<P extends Pattern> {
+  pattern: P;
+  execute: Executor<P>;
 }
 
 export type RouteEntry =
-  | { type: 'command'; command: Command }
+  | { type: 'command'; command: Command<Pattern> }
   | { type: 'group'; name: string; router: Router }
   | { type: 'filter'; predicate: SessionPredicate; router: Router }
-  | { type: 'rawPattern'; rawPattern: RawPattern };
+  | { type: 'rawPattern'; rawPattern: RawPattern<Pattern> };
 
 export type RouteBranch =
-  | { type: 'command'; path: string[]; command: Command }
-  | { type: 'rawPattern'; path: string[]; rawPattern: RawPattern };
+  | { type: 'command'; path: string[]; command: Command<Pattern> }
+  | { type: 'rawPattern'; path: string[]; rawPattern: RawPattern<Pattern> };
 
 export type RouteMatchResult =
-  | { type: 'command'; path: string[]; command: Command; params: any }
-  | { type: 'rawPattern'; path: string[]; rawPattern: RawPattern; params: any };
+  | { type: 'command'; path: string[]; command: Command<Pattern>; params: any }
+  | { type: 'rawPattern'; path: string[]; rawPattern: RawPattern<Pattern>; params: any };
 
 export interface Session {
   raw: types.IncomingMessage;
@@ -42,26 +42,24 @@ export class Router {
   private readonly entries: RouteEntry[] = [];
   private readonly groups = new Map<string, Router>();
 
-  command<P extends Pattern>(name: string, pattern: P, handler: Handler<P>): this {
-    const command: Command = { name, pattern, handler };
+  command<P extends Pattern>(command: Command<P>): this {
+    // @ts-expect-error
     this.entries.push({ type: 'command', command });
     return this;
   }
 
-  rawPattern<P extends Pattern>(pattern: P, handler: Handler<P>): this {
-    if (Object.keys(pattern).length === 0) {
+  rawPattern<P extends Pattern>(rawPattern: RawPattern<P>): this {
+    if (Object.keys(rawPattern.pattern).length === 0) {
       throw new Error('Raw pattern must have at least one parameter.');
     }
-    const firstKey = Object.keys(pattern)[0];
-    if (pattern[firstKey].capturer.typeInstruction.type === 'literal') {
+    const firstKey = Object.keys(rawPattern.pattern)[0];
+    if (rawPattern.pattern[firstKey].capturer.typeInstruction.type === 'literal') {
       throw new Error(
         'The first parameter of a raw pattern cannot be a literal, as it would conflict with command patterns.',
       );
     }
-
-    const rawPattern: RawPattern = { pattern, handler };
+    // @ts-expect-error
     this.entries.push({ type: 'rawPattern', rawPattern });
-
     return this;
   }
 
@@ -101,10 +99,10 @@ export class Router {
     }
     switch (match.type) {
       case 'command':
-        await match.command.handler(session, match.params);
+        await match.command.execute(session, match.params);
         break;
       case 'rawPattern':
-        await match.rawPattern.handler(session, match.params);
+        await match.rawPattern.execute(session, match.params);
         break;
     }
     return true;
@@ -147,7 +145,7 @@ export class Router {
     }
   }
 
-  private matchCommand(command: Command, tokenizer: Tokenizer, path: string[]): RouteMatchResult | undefined {
+  private matchCommand(command: Command<Pattern>, tokenizer: Tokenizer, path: string[]): RouteMatchResult | undefined {
     const token = tokenizer.peek();
     if (typeof token !== 'string' || token !== command.name) {
       return undefined;
@@ -178,7 +176,11 @@ export class Router {
     return router.matchFrom(session, tokenizer, [...path, name]);
   }
 
-  private matchRawPattern(rawPattern: RawPattern, tokenizer: Tokenizer, path: string[]): RouteMatchResult | undefined {
+  private matchRawPattern(
+    rawPattern: RawPattern<Pattern>,
+    tokenizer: Tokenizer,
+    path: string[],
+  ): RouteMatchResult | undefined {
     const params = this.capturePattern(rawPattern.pattern, tokenizer);
     if (params === undefined || tokenizer.hasNext()) {
       return undefined;
