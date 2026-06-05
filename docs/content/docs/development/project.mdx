@@ -1,0 +1,180 @@
+---
+title: 项目规范
+---
+
+import { File, Folder, Files } from 'fumadocs-ui/components/files';
+
+对于一个插件项目，你可以按照如下的结构来组织你的代码：
+
+<Files>
+  <Folder name="src" defaultOpen>
+    <File name="index.ts" />
+  </Folder>
+  <Folder name="test" defaultOpen>
+    <File name="my-plugin.test.ts" />
+  </Folder>
+  <File name="package.json" />
+  <File name="tsconfig.json" />
+  <File name="tsdown.config.ts" />
+</Files>
+
+## `tsconfig.json`
+
+以下是 Fraq 本身及官方插件使用的 `tsconfig.json`，供参考：
+
+```json
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "useDefineForClassFields": true,
+    "module": "esnext",
+    "lib": ["ESNext"],
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": false,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "declaration": true,
+    "strict": true,
+    "noFallthroughCasesInSwitch": true,
+    "types": ["node"]
+  }
+}
+```
+
+## `tsdown.config.ts`
+
+Fraq 推荐使用 [tsdown](https://tsdown.dev/) 来构建你的插件。你可以将 `tsdown` 添加到 `devDependencies`，在项目根目录下创建一个 `tsdown.config.ts` 文件来配置 tsdown，例如：
+
+```ts
+import { defineConfig } from 'tsdown';
+
+export default defineConfig({
+  entry: 'src/index.ts',
+  dts: true,
+});
+```
+
+## `package.json`
+
+### 命名规范
+
+插件的包名应该以 `fraq-plugin-` 开头，或者在你的 npm scope 下以 `fraq-plugin-` 开头，例如：
+
+- `fraq-plugin-echo`
+- `@your-scope/fraq-plugin-echo`
+
+官方插件则以 `@fraqjs/plugin-` 开头，例如：
+
+- `@fraqjs/plugin-conversation`
+- `@fraqjs/plugin-random`
+
+### `type` 字段
+
+虽然不是必需，但强烈建议在你的 `package.json` 文件中添加 `"type": "module"` 字段。这会将项目下所有的 JS 文件视为 ES Module，这对于现代 JavaScript 开发来说是一个好习惯，可以帮助你规避许多潜在的 CJS/ESM 语法问题。
+
+### 入口点文件
+
+你的插件需要在 `package.json` 中正确包含并导出。通常，我们不直接导出 `src/index.ts`，而是将构建后的文件（例如 `dist/index.js`）作为入口点。例如，对于用 `tsdown` 构建的插件，文件会位于 `dist` 目录下，你可以在 `package.json` 中这样配置：
+
+```json
+{
+  "files": ["dist"],
+  "main": "dist/index.mjs",
+  "typings": "dist/index.d.mts"
+}
+```
+
+如果你的项目除了 `dist` 之外还有其他用到的文件，请确保它们也被正确地包含在 `files` 字段中。
+
+### 声明依赖
+
+插件应该至少将 `@fraqjs/fraq` 声明为 `peerDependencies`。此外，如果你的插件依赖了其他的插件，你也应该将它们声明为 `peerDependencies`。
+
+如果你的插件在运行时需要使用某些库（例如 `axios`），你可以将它们声明为 `dependencies`。
+
+对于开发时所用的工具，例如 `tsdown`、`tsx` 和 `typescript`，则应该声明为 `devDependencies`。
+
+### 开放源代码
+
+Fraq 鼓励插件开发者积极开源自己的插件。为了方便使用者查询源代码仓库，可以在 `package.json` 中添加 `repository` 字段来指向你的代码仓库，例如：
+
+```json
+{
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/your-username/your-repo.git"
+  }
+}
+```
+
+此外，还可以通过 `license` 字段来声明你的插件的许可证类型，例如 `GPL-3.0-only`、`MIT`、`ISC` 等。
+
+## 编写测试
+
+Fraq 建议将测试代码放在 `test` 目录下。Fraq 中的测试一般分为两大类：
+
+### 冒烟测试 (Smoke Test)
+
+在一个真实的 Fraq 实例中测试插件的整体功能是否正常，形如在 “快速开始” 中提到的启动脚本。你可以在这个启动脚本中安装你的插件，将其对接到一个真实的 Milky 实例上，实际测试它的功能是否正常。随后，你可以用 `tsx` 来运行这个脚本，来进行冒烟测试：
+
+```bash
+npx tsx smoke-test.ts
+```
+
+{/* prettier-ignore */}
+<Callout type="idea">
+“Smoke Test” 一词来源于电子硬件行业。在电路板组装完成后，第一个测试就是通电，检查电路板是否有元件因短路而冒烟烧毁。后来这个术语被软件行业借用，指代在一个真实环境中测试软件的基本功能是否正常的测试方法。
+</Callout>
+{/* prettier-ignore-end */}
+
+你可能不愿意在测试过程中让其他用户意外触发插件，这时你可以给 `Context` 配置 `filter`，详见 [“上下文 (Context)“](./digging/context.mdx#事件过滤) 的相关章节。
+
+### 单元测试 (Unit Test)
+
+使用 `node:test` 等测试框架来分单元、分场景测试插件中的单个功能是否按照预期工作。对于这类测试，Fraq 提供了 `@fraqjs/mock` 库来帮助你模拟一个 Milky 客户端，并且包含了模拟消息发送、API Stub 等功能，详见 [“进行 Mock 测试”](./mocking.mdx) 章节。
+
+对于单元测试，建议将测试文件命名为 `*.test.ts`，并且放在 `test` 目录下。你可以在 `package.json` 中添加一个 `test` script 来运行你的测试，例如：
+
+```json
+{
+  "scripts": {
+    "test": "tsx --test test/**/*.test.ts"
+  }
+}
+```
+
+## 准备发布
+
+在完成了一个插件后，你可能会想要将其发布到 npm Registry 上，以便其他人也能使用它。发布插件的过程与发布普通的 npm 包是一样的，你需要在你的项目中的 `package.json` 文件中确保你的插件代码被正确地导出，并且在发布前触发一次构建来生成最终的输出文件。为此，你可以配置 `prepack` script：
+
+```json
+{
+  "scripts": {
+    "build": "tsdown",
+    "prepack": "npm run build"
+  }
+}
+```
+
+万事俱备，你可以使用 `npm publish` 命令来发布你的插件了。
+
+{/* prettier-ignore */}
+<Callout>
+2025 年年末开始，npm 增强了对 `publish` 的安全防护。如果你在发布插件时看到如下的报错：
+
+```
+npm error code ENEEDAUTH
+npm error need auth This command requires you to be logged in to https://registry.npmjs.org/
+npm error need auth You need to authorize this machine using `npm adduser`
+# or
+[E404] 404 Not Found - PUT https://registry.npmjs.org/... - Not found
+```
+
+这意味着你需要先使用 `npm login` 命令登录你的 npm 账号，然后再使用 `npm publish` 来发布你的插件。npm 要求登录和发布流程都进行 2FA 验证，你也可以考虑通过配置 Granular Access Token 来简化这个流程，详见 npm 官方文档的 [Creating and viewing access tokens](https://docs.npmjs.com/creating-and-viewing-access-tokens) 章节。
+
+此外，对于已经发布过一次及以上的插件，还可以配置 Trusted Publishers 并且在 GitHub Actions 中发布插件，详见 npm 官方文档的 [Trusted publishing for npm packages](https://docs.npmjs.com/trusted-publishers) 章节。
+
+</Callout>
+{/* prettier-ignore-end */}
