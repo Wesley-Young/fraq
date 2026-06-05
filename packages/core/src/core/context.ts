@@ -49,6 +49,7 @@ export class Context {
   private readonly services = new Map<ServiceClass, object>();
   private readonly subContexts: Context[] = [];
   private readonly parentEventForwarder?: WildcardHandler<EventMap>;
+  private readonly timers: NodeJS.Timeout[] = [];
 
   private readonly initialReconnectDelayMs: number;
   private readonly maxReconnectDelayMs: number;
@@ -169,6 +170,18 @@ and implement the dispose method to clean up resources when the context stops.
     return subContext;
   }
 
+  timeout(delayMs: number, callback: () => void): NodeJS.Timeout {
+    const timeout = setTimeout(callback, delayMs);
+    this.timers.push(timeout);
+    return timeout;
+  }
+
+  interval(intervalMs: number, callback: () => void): NodeJS.Timeout {
+    const interval = setInterval(callback, intervalMs);
+    this.timers.push(interval);
+    return interval;
+  }
+
   createSession(message: IncomingMessage): Session {
     return {
       raw: message,
@@ -277,6 +290,7 @@ and implement the dispose method to clean up resources when the context stops.
   private async stopInternal(): Promise<void> {
     const errors: unknown[] = [];
 
+    this.clearTimers();
     await this.stopEventStream(errors);
 
     for (const subContext of [...this.subContexts].reverse()) {
@@ -308,6 +322,13 @@ and implement the dispose method to clean up resources when the context stops.
     if (errors.length > 1) {
       throw new AggregateError(errors, `Context "${this.name}" failed to stop cleanly.`);
     }
+  }
+
+  private clearTimers(){
+    this.timers.forEach((timeout) => {
+      clearTimeout(timeout);
+    });
+    this.timers.length = 0;
   }
 
   private async stopEventStream(errors: unknown[]): Promise<void> {
