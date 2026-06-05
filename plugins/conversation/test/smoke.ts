@@ -31,3 +31,8 @@ const WeatherPlugin = definePlugin({
 ctx.install(ConversationPlugin);
 ctx.install(WeatherPlugin);
 ctx.start();
+
+process.on('SIGINT', async () => {
+  await ctx.stop();
+  process.exit(0);
+});

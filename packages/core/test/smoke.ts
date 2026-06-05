@@ -24,4 +24,9 @@ ctx.install(EchoPlugin, {
   trailingFaceId: 42,
 });
 
-await ctx.start();
+ctx.start();
+
+process.on('SIGINT', async () => {
+  await ctx.stop();
+  process.exit(0);
+});

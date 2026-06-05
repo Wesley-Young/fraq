@@ -52,3 +52,8 @@ ctx.install(
 );
 
 ctx.start();
+
+process.on('SIGINT', async () => {
+  await ctx.stop();
+  process.exit(0);
+});
