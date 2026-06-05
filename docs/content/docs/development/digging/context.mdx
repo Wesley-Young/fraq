@@ -32,6 +32,22 @@ const ctx = Context.fromClient(client);
 
 这种方式只要求客户端提供 Milky API 调用能力和事件流入口，具体通信方式可以由客户端自行决定。
 
+## 设定计时任务
+
+`Context` 提供了 `timeout` 和 `interval` 方法来设定计时任务，例如：
+
+```typescript
+ctx.timeout(() => {
+  console.log('这是一个一次性计时器，3 秒后触发');
+}, 3000);
+
+ctx.interval(() => {
+  console.log('这是一个循环计时器，每 2 秒触发一次');
+}, 2000);
+```
+
+这两个方法与 JavaScript 中的 `setTimeout` 和 `setInterval` 类似，都会返回 `NodeJS.Timeout` 对象。你可以通过 `clearTimeout` 和 `clearInterval` 来取消这些计时任务，这些任务也会在 `Context` 停止时自动被清除。
+
 ## 继承与隔离
 
 我们可以通过 `ctx.fork` 来创建一个继承当前 `ctx` 的新 `Context` 实例。这个新实例会与父 `Context` 使用同一个协议客户端，并且可以访问父 `Context` 提供的服务；但在新创建出的这个 `Context` 上进行配置、定义路由以及安装插件等操作不会影响到父 `Context`。我们结合上一节的依赖注入来看看这个特性：
@@ -182,9 +198,10 @@ ctx.start();
 
 调用 `ctx.stop` 方法可以停止 `Context`，此后 `Context` 将不再响应任何事件，也无法调用 Milky API。`Context` 在调用 `stop` 后无法再次启动。`stop` 的流程是：
 
-1. 停止根事件流，例如断开 WebSocket 连接，禁止后续的事件进入 `Context`。
-2. 按照 `fork` 的顺序反向调用所有子 `Context` 的 `stop` 方法，停止所有子 `Context`。子 `Context` 的 `stop` 方法会按照同样的流程停止它的子 `Context`，并且按照 `provide` 的顺序反向调用自身（子 `Context`）注册的所有服务的 `dispose` 方法（如果服务实现了 `Disposable` 接口），释放所有服务。
-3. 按照 `provide` 的顺序反向调用自身（根 `Context`）注册的所有服务的 `dispose` 方法。
+1. 停止 `Context` 内部通过 `timeout` 和 `interval` 创建的所有计时任务。
+2. 停止根事件流，例如断开 WebSocket 连接，禁止后续的事件进入 `Context`。
+3. 按照 `fork` 的顺序反向调用所有子 `Context` 的 `stop` 方法，停止所有子 `Context`。子 `Context` 的 `stop` 方法会按照同样的流程停止它的子 `Context`，并且按照 `provide` 的顺序反向调用自身（子 `Context`）注册的所有服务的 `dispose` 方法（如果服务实现了 `Disposable` 接口），释放所有服务。
+4. 按照 `provide` 的顺序反向调用自身（根 `Context`）注册的所有服务的 `dispose` 方法。
 
 假如我们有这样的 `Context` 结构：
 
