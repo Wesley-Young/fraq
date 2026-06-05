@@ -49,7 +49,7 @@ export class Context {
   private readonly services = new Map<ServiceClass, object>();
   private readonly subContexts: Context[] = [];
   private readonly parentEventForwarder?: WildcardHandler<EventMap>;
-  private readonly timers: NodeJS.Timeout[] = [];
+  private readonly timers = new Set<NodeJS.Timeout>();
 
   private readonly initialReconnectDelayMs: number;
   private readonly maxReconnectDelayMs: number;
@@ -170,15 +170,22 @@ and implement the dispose method to clean up resources when the context stops.
     return subContext;
   }
 
-  timeout(delayMs: number, callback: () => void): NodeJS.Timeout {
-    const timeout = setTimeout(callback, delayMs);
-    this.timers.push(timeout);
+  timeout(delayMs: number, callback: () => void | Promise<void>): NodeJS.Timeout {
+    this.assertCanScheduleTimer();
+    const timeout = setTimeout(() => {
+      this.timers.delete(timeout);
+      void this.runTimerCallback(callback);
+    }, delayMs);
+    this.timers.add(timeout);
     return timeout;
   }
 
-  interval(intervalMs: number, callback: () => void): NodeJS.Timeout {
-    const interval = setInterval(callback, intervalMs);
-    this.timers.push(interval);
+  interval(intervalMs: number, callback: () => void | Promise<void>): NodeJS.Timeout {
+    this.assertCanScheduleTimer();
+    const interval = setInterval(() => {
+      void this.runTimerCallback(callback);
+    }, intervalMs);
+    this.timers.add(interval);
     return interval;
   }
 
@@ -236,14 +243,14 @@ and implement the dispose method to clean up resources when the context stops.
   }
 
   async stop(): Promise<void> {
-    if (this.state === 'idle' || this.state === 'stopped') {
+    if ((this.state === 'idle' && this.timers.size === 0) || this.state === 'stopped') {
       return;
     }
     if (this.state === 'starting') {
       await this.startPromise;
     }
     const stateAfterStart = this.getState();
-    if (stateAfterStart === 'idle' || stateAfterStart === 'stopped') {
+    if ((stateAfterStart === 'idle' && this.timers.size === 0) || stateAfterStart === 'stopped') {
       return;
     }
     if (stateAfterStart === 'stopping') {
@@ -291,7 +298,6 @@ and implement the dispose method to clean up resources when the context stops.
     const errors: unknown[] = [];
 
     this.clearTimers();
-    await this.stopEventStream(errors);
 
     for (const subContext of [...this.subContexts].reverse()) {
       try {
@@ -300,6 +306,8 @@ and implement the dispose method to clean up resources when the context stops.
         errors.push(error);
       }
     }
+
+    await this.stopEventStream(errors);
 
     if (this.parent && this.parentEventForwarder) {
       this.parent.eventBus.off('*', this.parentEventForwarder);
@@ -324,11 +332,31 @@ and implement the dispose method to clean up resources when the context stops.
     }
   }
 
-  private clearTimers() {
-    this.timers.forEach((timeout) => {
-      clearTimeout(timeout);
-    });
-    this.timers.length = 0;
+  private assertCanScheduleTimer(): void {
+    if (this.state === 'stopping') {
+      throw new Error(`Context "${this.name}" cannot schedule timers while it is stopping.`);
+    }
+    if (this.state === 'stopped') {
+      throw new Error(`Context "${this.name}" cannot schedule timers after it has stopped.`);
+    }
+  }
+
+  private async runTimerCallback(callback: () => void | Promise<void>): Promise<void> {
+    if (this.state === 'stopping' || this.state === 'stopped') {
+      return;
+    }
+    try {
+      await callback();
+    } catch (error) {
+      this.logger.error('Error handling timer callback', error);
+    }
+  }
+
+  private clearTimers(): void {
+    for (const timer of this.timers) {
+      clearTimeout(timer);
+    }
+    this.timers.clear();
   }
 
   private async stopEventStream(errors: unknown[]): Promise<void> {
