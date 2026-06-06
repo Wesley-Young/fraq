@@ -25,7 +25,8 @@ Fraq 提供了多种参数类型来满足不同的需求：
 - `param.literal(literal)`: 匹配一个字面量参数，只有当输入与指定的字面量完全匹配时才会成功。
 - `param.str()`: 匹配一个字符串参数。
 - `param.num()`: 匹配一个数字参数。
-- `param.greedy()`: 匹配一个贪婪参数，捕获输入的剩余部分。这个参数只能放在最后，并且只匹配后续输入只剩下纯文本的情况。
+- `param.greedy()`: 匹配当前文本消息段中的剩余文本，不会跨过后续消息段。
+- `param.catchAll()`: 匹配所有剩余内容，捕获当前位置之后的所有文本和非文本消息段，并以消息段数组返回。这个参数必须放在最后。
 - `param.union(...literals)`: 匹配一个联合参数，输入必须与提供的字面量列表中的一个完全匹配。
 - `param.segment(type)`: 匹配一个给定类型的非文本消息段参数，例如 `mention` 或 `image`。这在解析一些富文本输入时非常有用，例如，一些指令可能会接受一张图片作为参数。
 
@@ -41,8 +42,9 @@ ctx.router.command({
     u: param.union('option1', 'option2', 'option3'),
     seg: param.segment('mention'),
     g: param.greedy(),
+    rest: param.catchAll(),
   },
-  execute(session, { l, s, n, u, seg, g }) {
+  execute(session, { l, s, n, u, seg, g, rest }) {
     // ...
   },
 });
@@ -51,7 +53,8 @@ ctx.router.command({
 满足上述指令的一个用户输入可以是：
 
 <pre>
-  foo hello world 123 option2 <u>@someuser</u> this is a greedy parameter
+  foo hello world 123 option2 <u>@someuser</u> this is a greedy parameter{' '}
+  <u>@anotheruser</u>
 </pre>
 
 它会被解析成：
@@ -66,7 +69,13 @@ ctx.router.command({
     "type": "mention",
     "data": { "user_id": 123456789, "name": "someuser" }
   },
-  "g": "this is a greedy parameter"
+  "g": "this is a greedy parameter ",
+  "rest": [
+    {
+      "type": "mention",
+      "data": { "user_id": 987654321, "name": "anotheruser" }
+    }
+  ]
 }
 ```
 
@@ -154,6 +163,21 @@ ctx.router.rawPattern({
 ```
 
 这样就可以通过 `reply` 来拿到用户引用的消息段信息，通过 `content` 来拿到用户输入的剩余文本信息了。这比一般的指令定义更灵活，因为它不要求用户输入一个特定的指令名称，只要输入符合模式就可以了。
+
+如果需要捕获完整的剩余消息内容，包括文本、提及、图片等消息段，可以使用 `param.catchAll()`：
+
+```typescript
+ctx.router.rawPattern({
+  pattern: {
+    content: param.catchAll(),
+  },
+  execute(session, { content }) {
+    // content: milky.IncomingSegment[]
+  },
+});
+```
+
+`param.catchAll()` 会消费当前位置之后的所有剩余内容，因此它只能作为一个模式中的最后一个参数注册。
 
 ## 指令重载
 
