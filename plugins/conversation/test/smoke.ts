@@ -1,6 +1,6 @@
-import { Context, definePlugin, msg, param } from '@fraqjs/fraq';
 import { createSimpleLogHandler } from '@fraqjs/mock';
 
+import { Context, definePlugin, msg, param } from '../../../packages/fraq/dist/index.mjs';
 import { ConversationPlugin, ConversationService } from '../src';
 
 const ctx = Context.fromUrl('http://localhost:30001/', {
