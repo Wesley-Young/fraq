@@ -62,6 +62,17 @@ export namespace filter {
     };
   }
 
+  export function allFriends(): Filter {
+    return {
+      message_receive: ({ data }) => data.message_scene === 'friend',
+      message_recall: ({ data }) => data.message_scene === 'friend',
+      peer_pin_change: ({ data }) => data.message_scene === 'friend',
+      group_invitation: () => true,
+      friend_nudge: () => true,
+      friend_file_upload: () => true,
+    };
+  }
+
   export function group(...uinList: number[]): Filter {
     const uinSet = new Set(uinList);
     return {
@@ -80,6 +91,26 @@ export namespace filter {
       group_whole_mute: ({ data }) => uinSet.has(data.group_id),
       group_nudge: ({ data }) => uinSet.has(data.group_id),
       group_file_upload: ({ data }) => uinSet.has(data.group_id),
+    };
+  }
+
+  export function allGroups(): Filter {
+    return {
+      message_receive: ({ data }) => data.message_scene === 'group',
+      message_recall: ({ data }) => data.message_scene === 'group',
+      peer_pin_change: ({ data }) => data.message_scene === 'group',
+      group_join_request: () => true,
+      group_invited_join_request: () => true,
+      group_admin_change: () => true,
+      group_essence_message_change: () => true,
+      group_member_increase: () => true,
+      group_member_decrease: () => true,
+      group_name_change: () => true,
+      group_message_reaction: () => true,
+      group_mute: () => true,
+      group_whole_mute: () => true,
+      group_nudge: () => true,
+      group_file_upload: () => true,
     };
   }
 
