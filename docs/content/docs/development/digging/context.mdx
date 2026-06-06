@@ -182,8 +182,11 @@ const filter3 = filter.or(filter.group(123456), filter.friend(10001));
 const filter4 = filter.and(filter.group(123456), filter.admin());
 // 监听来自群聊 123456 的管理员的消息事件。
 
-const filter5 = filter.not(filter.group(123456));
-// 监听不来自群聊 123456 的事件，也就是来自其他群聊、好友或讨论组的事件。
+const filter5 = filter.and(
+  filter.allGroups(),
+  filter.not(filter.group(123456)),
+);
+// 监听来自群聊但不包括群聊 123456 的事件。
 ```
 
 随后，就可以将这些过滤器传入 `ctx.fork` 来创建新的 `Context`，例如：
