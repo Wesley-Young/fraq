@@ -131,9 +131,9 @@ npx tsx smoke-test.ts
 
 你可能不愿意在测试过程中让其他用户意外触发插件，这时你可以给 `Context` 配置 `filter`，详见 [“上下文 (Context)“](./digging/context.mdx#事件过滤) 的相关章节。
 
-### 单元测试 (Unit Test)
+### Mock 测试 (Mock Test)
 
-使用 `node:test` 等测试框架来分单元、分场景测试插件中的单个功能是否按照预期工作。对于这类测试，Fraq 提供了 `@fraqjs/mock` 库来帮助你模拟一个 Milky 客户端，并且包含了模拟消息发送、API Stub 等功能，详见 [“进行 Mock 测试”](./mocking.mdx) 章节。
+使用 `node:test` 等测试框架并且结合 [`@fraqjs/mock`](./mocking.mdx) 来分单元、分场景测试插件中的单个功能是否按照预期工作。`@fraqjs/mock` 是一个用于模拟 Milky 客户端的库，并且包含了模拟消息发送、API Stub 等功能。
 
 对于单元测试，建议将测试文件命名为 `*.test.ts`，并且放在 `test` 目录下。你可以在 `package.json` 中添加一个 `test` script 来运行你的测试，例如：
 
