@@ -1,6 +1,6 @@
 import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
 
-import { version } from '../../../packages/core/package.json';
+import { version } from '../../../packages/fraq/package.json';
 import { appName, gitConfig } from './shared';
 
 export function baseOptions(): BaseLayoutProps {
