@@ -1,0 +1,124 @@
+---
+title: '@fraqjs/plugin-ai'
+---
+
+<NpmBadge packageName="@fraqjs/plugin-ai" />
+
+`@fraqjs/plugin-ai` 是 [Vercel AI SDK](https://ai-sdk.dev/) 的一层极薄封装。它只做一件事：把一个配置好的语言模型挂到 `Context` 上，通过 `ctx.ai.model` 暴露出来。
+
+本插件**不**包装 AI SDK 的任何函数。所有生成逻辑都直接调用从 `ai` 包导入的原始函数（`generateText`、`streamText` 等），并把 `ctx.ai.model` 作为 `model` 参数传进去。这样做的好处是：AI SDK 的全部泛型推断（工具类型、结构化输出等）都原汁原味地保留，与不使用 Fraq 时完全一致。
+
+
+
+## 安装与配置
+
+将插件添加至 `dependencies`，同时安装 `ai`（AI SDK 的核心包），然后在创建 `Context` 时引入并配置插件：
+
+```typescript
+import AiPlugin from '@fraqjs/plugin-ai';
+import { openai } from '@ai-sdk/openai';
+
+ctx.install(AiPlugin, {
+  model: openai('gpt-4o'),
+});
+```
+
+`AiPlugin` 有如下配置项：
+
+- `model`：要暴露的语言模型。它可以是一个模型 id 字符串（通过 AI SDK 的全局 provider 或 [Vercel AI Gateway](https://ai-sdk.dev/docs/ai-sdk-core/provider-management) 解析），也可以是任意 provider 的模型实例。
+
+{/* prettier-ignore */}
+<Callout>
+`ai` 在不同的 provider 之间共享全局状态，因此请确保你的项目中只有一份 `ai` 实例。本插件将 `ai` 声明为 `peerDependencies`，你需要在自己的项目中将它添加到 `dependencies`。具体的 provider 包（如 `@ai-sdk/openai`）由你自行选择并安装。
+</Callout>
+{/* prettier-ignore-end */}
+
+如果你是插件开发者，请将本插件添加到项目的 `peerDependencies` 中，并在自己的插件中声明依赖：
+
+```typescript
+import { definePlugin } from '@fraqjs/fraq';
+import { AiService } from '@fraqjs/plugin-ai';
+
+definePlugin({
+  name: 'my-plugin',
+  inject: {
+    ai: AiService,
+  },
+  apply(ctx) {
+    // 通过 ctx.ai.model 访问配置好的模型
+  },
+});
+```
+
+此外，你还需要将 `ai` 添加到 `dependencies` 中，以便导入其中的函数和类型定义。
+
+## 生成文本
+
+通过 `ctx.ai.model` 拿到配置好的模型，直接传给 `ai` 的 `generateText`：
+
+```typescript
+import { generateText } from 'ai';
+
+const { text } = await generateText({
+  model: ctx.ai.model,
+  prompt: '用一句话介绍一下 Fraq。',
+});
+
+console.log(text);
+```
+
+## 流式生成
+
+`streamText` 会返回一个流式结果，你可以通过 `textStream` 异步迭代器逐段读取生成的文本：
+
+```typescript
+import { streamText } from 'ai';
+
+const result = streamText({
+  model: ctx.ai.model,
+  prompt: '写一首关于海的短诗。',
+});
+
+for await (const delta of result.textStream) {
+  process.stdout.write(delta);
+}
+```
+
+## 工具调用
+
+`generateText` 和 `streamText` 都支持工具调用（Tool Calling），你可以通过 `tools` 选项让模型在生成过程中调用你定义的函数。由于插件不做任何包装，工具的输入/输出类型会被完整推断：
+
+```typescript
+import { generateText, tool } from 'ai';
+import { z } from 'zod';
+
+const { toolResults } = await generateText({
+  model: ctx.ai.model,
+  prompt: '东京现在的天气怎么样？',
+  tools: {
+    weather: tool({
+      description: '查询某个城市的天气',
+      inputSchema: z.object({
+        city: z.string().describe('城市名称'),
+      }),
+      execute: async ({ city }) => `${city}今天是晴天`,
+    }),
+  },
+});
+
+console.log(toolResults);
+```
+
+## 其他能力
+
+因为插件只暴露模型本身，AI SDK 的其余能力（`generateObject`、`streamObject`、`embed`、`embedMany`、图像/语音等）也都可以用同样的方式直接调用——把 `ctx.ai.model` 传给对应的函数即可：
+
+```typescript
+import { generateObject } from 'ai';
+
+const { object } = await generateObject({
+  model: ctx.ai.model,
+  schema: mySchema,
+  prompt: '...',
+});
+```
