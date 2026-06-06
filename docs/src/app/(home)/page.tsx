@@ -17,6 +17,7 @@ import { cn } from '@/lib/cn';
 import { docsRoute, gitConfig } from '@/lib/shared';
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://fraq.ntqqrev.org'),
   title: 'Fraq',
   description: 'TypeScript Milky 聊天机器人框架',
 };
