@@ -10,8 +10,8 @@ export function baseOptions(): BaseLayoutProps {
       title: (
         <span className="flex items-center gap-1">
           {appName}
-          <span className="inline-block whitespace-nowrap rounded-full bg-black px-[0.4rem] py-[0.15rem] font-mono text-[0.75em] leading-none text-white dark:bg-white dark:text-black">
-            v{version}
+          <span className="inline-block whitespace-nowrap rounded-full bg-black px-[0.4rem] py-[0.15rem] text-[0.75em] leading-none text-white dark:bg-white dark:text-black">
+            <code>v{version}</code>
           </span>
         </span>
       ),
