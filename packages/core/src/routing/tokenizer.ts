@@ -72,36 +72,76 @@ export class Tokenizer {
   }
 
   isGreedyAvailable(): boolean {
-    // greedy 指的是将后续的文本都作为一个 token 处理，并且不允许后续有别的类型的消息段/token 了
-    // 因此需要当前 offset 处在最后一个消息段，并且这个消息段必须是 text
-    if (this.offset !== this.segments.length - 1) {
+    const position = this.findNextPosition();
+    if (position === undefined) {
       return false;
     }
 
-    const segment = this.segments[this.offset];
+    const segment = this.segments[position.offset];
     if (segment?.type !== 'text') {
       return false;
     }
 
-    return this.findTextTokenStart(segment.data.text, this.subOffset ?? 0) < segment.data.text.length;
+    return this.findTextTokenStart(segment.data.text, position.subOffset ?? 0) < segment.data.text.length;
   }
 
   greedy(): string {
-    if (!this.isGreedyAvailable()) {
+    const position = this.findNextPosition();
+    if (position === undefined) {
       throw new Error('Greedy token is not available');
     }
 
-    const segment = this.segments[this.offset];
+    const segment = this.segments[position.offset];
     if (segment.type !== 'text') {
       throw new Error('Greedy token is not available');
     }
 
-    const tokenStart = this.findTextTokenStart(segment.data.text, this.subOffset ?? 0);
+    const tokenStart = this.findTextTokenStart(segment.data.text, position.subOffset ?? 0);
+    if (tokenStart >= segment.data.text.length) {
+      throw new Error('Greedy token is not available');
+    }
+
     const token = segment.data.text.slice(tokenStart);
-    this.offset = this.segments.length;
+    this.offset = position.offset + 1;
     this.subOffset = undefined;
 
     return token;
+  }
+
+  isCatchAllAvailable(): boolean {
+    return this.findNextPosition() !== undefined;
+  }
+
+  catchAll(): IncomingSegment[] {
+    const position = this.findNextPosition();
+    if (position === undefined) {
+      throw new Error('Catch-all token is not available');
+    }
+
+    const segment = this.segments[position.offset];
+    const segments: IncomingSegment[] = [];
+
+    if (segment.type === 'text') {
+      const textStart = this.findTextTokenStart(segment.data.text, position.subOffset ?? 0);
+      const text = segment.data.text.slice(textStart);
+      if (text.length > 0) {
+        segments.push({
+          ...segment,
+          data: {
+            ...segment.data,
+            text,
+          },
+        });
+      }
+      segments.push(...this.segments.slice(position.offset + 1));
+    } else {
+      segments.push(...this.segments.slice(position.offset));
+    }
+
+    this.offset = this.segments.length;
+    this.subOffset = undefined;
+
+    return segments;
   }
 
   private findNextPosition(): TokenizerState | undefined {

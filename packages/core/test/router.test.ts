@@ -1,36 +1,11 @@
+import { createMockInbox, inmsg, inseg } from '@fraqjs/mock';
+
 import { type milky, param, Router, type Session } from '../src';
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-function text(text: string): milky.IncomingTextSegment {
-  return {
-    type: 'text',
-    data: { text },
-  };
-}
-
-function mention(userId: number, name = 'tester'): milky.IncomingMentionSegment {
-  return {
-    type: 'mention',
-    data: {
-      user_id: userId,
-      name,
-    },
-  };
-}
-
-function message(segments: milky.IncomingSegment[]): milky.IncomingMessage {
-  return {
-    message_scene: 'friend',
-    peer_id: 1,
-    message_seq: 1,
-    sender_id: 1,
-    time: 1,
-    segments,
-    friend: {} as milky.FriendEntity,
-  };
-}
+const inbox = createMockInbox();
 
 function session(raw: milky.IncomingMessage): Session {
   return {
@@ -39,7 +14,14 @@ function session(raw: milky.IncomingMessage): Session {
   };
 }
 
-async function dispatch(router: Router, segments: milky.IncomingSegment[]): Promise<boolean> {
+function message(segments: readonly milky.IncomingSegment_ZodInput[] | readonly milky.IncomingSegment[]) {
+  return inbox.friend({ userId: 1 }, segments);
+}
+
+async function dispatch(
+  router: Router,
+  segments: readonly milky.IncomingSegment_ZodInput[] | readonly milky.IncomingSegment[],
+): Promise<boolean> {
   const raw = message(segments);
   return await router.dispatch(session(raw), raw);
 }
@@ -56,7 +38,7 @@ test('dispatches a command and captures typed parameters', async () => {
     },
   });
 
-  const handled = await dispatch(router, [text('add 3 apples')]);
+  const handled = await dispatch(router, inmsg`add 3 apples`);
 
   assert.equal(handled, true);
   assert.deepEqual(calls, [{ count: 3, label: 'apples' }]);
@@ -74,7 +56,7 @@ test('does not dispatch a command when trailing tokens remain', async () => {
     },
   });
 
-  const handled = await dispatch(router, [text('ping extra')]);
+  const handled = await dispatch(router, inmsg`ping extra`);
 
   assert.equal(handled, false);
   assert.equal(called, false);
@@ -92,7 +74,7 @@ test('greedy command parameter captures the remaining text', async () => {
     },
   });
 
-  const handled = await dispatch(router, [text('say hello   world')]);
+  const handled = await dispatch(router, inmsg`say hello   world`);
 
   assert.equal(handled, true);
   assert.equal(captured, 'hello   world');
@@ -117,7 +99,7 @@ test('tries later routes after a command pattern fails', async () => {
     },
   });
 
-  const handled = await dispatch(router, [text('pick blue')]);
+  const handled = await dispatch(router, inmsg`pick blue`);
 
   assert.equal(handled, true);
   assert.deepEqual(calls, ['blue']);
@@ -135,7 +117,7 @@ test('dispatches grouped commands after matching the group prefix', async () => 
     },
   });
 
-  const handled = await dispatch(router, [text('admin ban 42')]);
+  const handled = await dispatch(router, inmsg`admin ban 42`);
 
   assert.equal(handled, true);
   assert.equal(captured, 42);
@@ -160,7 +142,7 @@ test('matches the first dispatchable branch without running its handler', () => 
     },
   });
 
-  const raw = message([text('pick blue')]);
+  const raw = message(inmsg`pick blue`);
   const match = router.match(session(raw), raw);
 
   assert.equal(match?.type, 'command');
@@ -179,7 +161,7 @@ test('matches grouped branches with their group path', () => {
     execute() {},
   });
 
-  const raw = message([text('admin ban 42')]);
+  const raw = message(inmsg`admin ban 42`);
   const match = router.match(session(raw), raw);
 
   assert.equal(match?.type, 'command');
@@ -208,7 +190,7 @@ test('runs filtered routes only when the predicate accepts the session', async (
       },
     });
 
-  const rejected = message([text('secret')]);
+  const rejected = message(inmsg`secret`);
   const accepted = { ...rejected, sender_id: 7 };
 
   assert.equal(await router.dispatch(session(rejected), rejected), false);
@@ -226,7 +208,7 @@ test('lists branches that can pass session filters', () => {
     .filter((session) => session.raw.sender_id === 8)
     .rawPattern({ pattern: { content: param.greedy() }, execute() {} });
 
-  const raw = message([text('anything')]);
+  const raw = message(inmsg`anything`);
   const branches = router.branches(session({ ...raw, sender_id: 7 }));
 
   assert.deepEqual(
@@ -255,7 +237,7 @@ test('dispatches raw patterns without a command prefix', async () => {
     },
   });
 
-  const handled = await dispatch(router, [text('anything goes here')]);
+  const handled = await dispatch(router, inmsg`anything goes here`);
 
   assert.equal(handled, true);
   assert.equal(captured, 'anything goes here');
@@ -273,7 +255,7 @@ test('rejects empty raw patterns and literal-first raw patterns', () => {
 
 test('captures non-text segments with segment parameters', async () => {
   const router = new Router();
-  const target = mention(42, 'alice');
+  const target = inseg.mention(42, 'alice');
   let captured: milky.IncomingMentionSegment | undefined;
 
   router.command({
@@ -284,10 +266,10 @@ test('captures non-text segments with segment parameters', async () => {
     },
   });
 
-  const handled = await dispatch(router, [text('poke'), target]);
+  const handled = await dispatch(router, inmsg`poke ${target}`);
 
   assert.equal(handled, true);
-  assert.equal(captured, target);
+  assert.deepEqual(captured, target);
 });
 
 test('does not let greedy capture span across non-text segments', async () => {
@@ -302,8 +284,123 @@ test('does not let greedy capture span across non-text segments', async () => {
     },
   });
 
-  const handled = await dispatch(router, [text('say hello'), mention(42)]);
+  const handled = await dispatch(router, inmsg`say hello ${inseg.mention(42)}`);
 
   assert.equal(handled, false);
   assert.equal(called, false);
+});
+
+test('greedy captures the rest of the current text segment and leaves following segments', async () => {
+  const router = new Router();
+  const target = inseg.mention(42, 'alice');
+  let captured: { content: string; target: milky.IncomingMentionSegment } | undefined;
+
+  router.command({
+    name: 'say',
+    pattern: { content: param.greedy(), target: param.segment('mention') },
+    execute(_session, params) {
+      captured = params;
+    },
+  });
+
+  const handled = await dispatch(router, [inseg.text('say hello   world'), target]);
+
+  assert.equal(handled, true);
+  assert.deepEqual(captured, { content: 'hello   world', target });
+});
+
+test('catch-all captures remaining text and message segments', async () => {
+  const router = new Router();
+  const target = inseg.mention(42, 'alice');
+  let captured: milky.IncomingSegment[] | undefined;
+
+  router.command({
+    name: 'reply',
+    pattern: { content: param.catchAll() },
+    execute(_session, params) {
+      captured = params.content;
+    },
+  });
+
+  const handled = await dispatch(router, [inseg.text('reply hello   world  '), target]);
+
+  assert.equal(handled, true);
+  assert.deepEqual(captured, [inseg.text('hello   world  '), target]);
+});
+
+test('catch-all captures remaining segments starting from a non-text segment', async () => {
+  const router = new Router();
+  const target = inseg.mention(42, 'alice');
+  let captured: milky.IncomingSegment[] | undefined;
+
+  router.command({
+    name: 'reply',
+    pattern: { content: param.catchAll() },
+    execute(_session, params) {
+      captured = params.content;
+    },
+  });
+
+  const handled = await dispatch(router, inmsg`reply ${target}`);
+
+  assert.equal(handled, true);
+  assert.deepEqual(captured, [target]);
+});
+
+test('catch-all does not match empty remaining input', async () => {
+  const router = new Router();
+  let called = false;
+
+  router.command({
+    name: 'reply',
+    pattern: { content: param.catchAll() },
+    execute() {
+      called = true;
+    },
+  });
+
+  const handled = await dispatch(router, inmsg`reply`);
+
+  assert.equal(handled, false);
+  assert.equal(called, false);
+});
+
+test('raw pattern catch-all captures a mixed message', async () => {
+  const router = new Router();
+  const target = inseg.mention(42, 'alice');
+  let captured: milky.IncomingSegment[] | undefined;
+
+  router.rawPattern({
+    pattern: { content: param.catchAll() },
+    execute(_session, params) {
+      captured = params.content;
+    },
+  });
+
+  const handled = await dispatch(router, inmsg`hello ${target}`);
+
+  assert.equal(handled, true);
+  assert.deepEqual(captured, [inseg.text('hello '), target]);
+});
+
+test('rejects catch-all parameters before the end of a pattern', () => {
+  const router = new Router();
+
+  assert.throws(
+    () =>
+      router.command({
+        name: 'reply',
+        pattern: { content: param.catchAll(), label: param.str() },
+        execute() {},
+      }),
+    /Catch-all parameters must be the last parameter/,
+  );
+  assert.throws(
+    () =>
+      router.rawPattern({
+        pattern: { content: param.catchAll(), label: param.str() },
+        execute() {},
+      }),
+    /Catch-all parameters must be the last parameter/,
+  );
 });

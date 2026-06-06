@@ -43,21 +43,14 @@ export class Router {
   private readonly groups = new Map<string, Router>();
 
   command<P extends Pattern>(command: Command<P>): this {
+    this.validatePattern(command.pattern);
     // @ts-expect-error
     this.entries.push({ type: 'command', command });
     return this;
   }
 
   rawPattern<P extends Pattern>(rawPattern: RawPattern<P>): this {
-    if (Object.keys(rawPattern.pattern).length === 0) {
-      throw new Error('Raw pattern must have at least one parameter.');
-    }
-    const firstKey = Object.keys(rawPattern.pattern)[0];
-    if (rawPattern.pattern[firstKey].capturer.typeInstruction.type === 'literal') {
-      throw new Error(
-        'The first parameter of a raw pattern cannot be a literal, as it would conflict with command patterns.',
-      );
-    }
+    this.validatePattern(rawPattern.pattern, { rawPattern: true });
     // @ts-expect-error
     this.entries.push({ type: 'rawPattern', rawPattern });
     return this;
@@ -212,6 +205,27 @@ export class Router {
     }
 
     return branches;
+  }
+
+  private validatePattern(pattern: Pattern, options?: { rawPattern?: boolean }): void {
+    const entries = Object.entries(pattern);
+
+    if (options?.rawPattern && entries.length === 0) {
+      throw new Error('Raw pattern must have at least one parameter.');
+    }
+
+    if (options?.rawPattern && entries[0]?.[1].capturer.typeInstruction.type === 'literal') {
+      throw new Error(
+        'The first parameter of a raw pattern cannot be a literal, as it would conflict with command patterns.',
+      );
+    }
+
+    const catchAllEntryIndex = entries.findIndex(([, parameter]) => {
+      return parameter.capturer.typeInstruction.type === 'catchAll';
+    });
+    if (catchAllEntryIndex !== -1 && catchAllEntryIndex !== entries.length - 1) {
+      throw new Error('Catch-all parameters must be the last parameter in a pattern.');
+    }
   }
 
   private capturePattern<P extends Pattern>(pattern: P, tokenizer: Tokenizer): ParamsOf<P> | undefined {

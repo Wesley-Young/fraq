@@ -1,3 +1,4 @@
+import type { IncomingSegment } from '../protocol/types';
 import type { Token, Tokenizer } from './tokenizer';
 
 export interface Capturer<T> {
@@ -10,6 +11,7 @@ export type TypeInstruction =
   | { type: 'number' }
   | { type: 'string' }
   | { type: 'greedy' }
+  | { type: 'catchAll' }
   | { type: 'union'; members: string[] }
   | { type: 'segment'; segmentType: Exclude<Token, string>['type'] };
 
@@ -79,6 +81,18 @@ export namespace param {
       capture(tokenizer: Tokenizer): string | undefined {
         if (tokenizer.isGreedyAvailable()) {
           return tokenizer.greedy();
+        }
+        return undefined;
+      },
+    });
+  }
+
+  export function catchAll(): Parameter<IncomingSegment[]> {
+    return new Parameter({
+      typeInstruction: { type: 'catchAll' },
+      capture(tokenizer: Tokenizer): IncomingSegment[] | undefined {
+        if (tokenizer.isCatchAllAvailable()) {
+          return tokenizer.catchAll();
         }
         return undefined;
       },
