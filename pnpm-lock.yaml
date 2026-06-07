@@ -119,13 +119,13 @@ importers:
       '@fraqjs/fraq':
         specifier: workspace:^
         version: link:../../packages/fraq
+      ai:
+        specifier: ^6.0.0
+        version: 6.0.197(zod@4.4.3)
     devDependencies:
       '@fraqjs/mock':
         specifier: workspace:^
         version: link:../../packages/mock
-      ai:
-        specifier: ^6.0.0
-        version: 6.0.197(zod@4.4.3)
 
   plugins/conversation:
     dependencies:

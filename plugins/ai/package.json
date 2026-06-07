@@ -26,8 +26,7 @@
     "ai": "^6.0.0"
   },
   "devDependencies": {
-    "@fraqjs/mock": "workspace:^",
-    "ai": "^6.0.0"
+    "@fraqjs/mock": "workspace:^"
   },
   "engines": {
     "node": ">=22"
