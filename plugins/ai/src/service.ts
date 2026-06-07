@@ -7,6 +7,19 @@ export interface AiServiceOptions {
 }
 
 export class AiService {
+  constructor(private readonly options: AiServiceOptions) {
+    if (!options.models[options.defaultModel]) {
+      throw new Error(`Invalid default model "${options.defaultModel}": model does not exist.`);
+    }
+
+    // Check aliases point to valid models
+    for (const [alias, target] of Object.entries(options.aliases)) {
+      if (!options.models[target]) {
+        throw new Error(`Invalid alias "${alias}": target model "${target}" does not exist.`);
+      }
+    }
+  }
+
   hasModel(name: string): boolean {
     return !!this.options.models[name] || !!this.options.aliases[name];
   }
@@ -25,18 +38,5 @@ export class AiService {
 
   models(): Record<string, LanguageModel> {
     return { ...this.options.models };
-  }
-
-  constructor(private readonly options: AiServiceOptions) {
-    if (!options.models[options.defaultModel]) {
-      throw new Error(`Invalid default model "${options.defaultModel}": model does not exist.`);
-    }
-
-    // Check aliases point to valid models
-    for (const [alias, target] of Object.entries(options.aliases)) {
-      if (!options.models[target]) {
-        throw new Error(`Invalid alias "${alias}": target model "${target}" does not exist.`);
-      }
-    }
   }
 }
