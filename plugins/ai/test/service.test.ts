@@ -43,7 +43,7 @@ test('AiService resolves models by name and alias', () => {
   assert.equal(service.hasModel('missing'), false);
 });
 
-test('AiService exposes a defensive copy of all concrete models', () => {
+test('AiService exposes a list of all model names', () => {
   const first = mockLanguageModel('first');
   const second = mockLanguageModel('second');
   const service = new AiService({
@@ -57,16 +57,7 @@ test('AiService exposes a defensive copy of all concrete models', () => {
     defaultModel: 'test/first',
   });
 
-  const models = service.models();
-
-  assert.deepEqual(Object.keys(models), ['test/first', 'test/second']);
-  assert.equal(models['test/first'], first);
-  assert.equal(models['test/second'], second);
-
-  delete models['test/first'];
-
-  assert.equal(service.model('test/first'), first);
-  assert.equal(service.model('first'), first);
+  assert.deepEqual(service.models(), ['test/first', 'test/second']);
 });
 
 test('AiService throws for unknown model names', () => {

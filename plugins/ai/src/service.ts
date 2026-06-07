@@ -36,7 +36,7 @@ export class AiService {
     throw new Error(`Model not found: ${name}`);
   }
 
-  models(): Record<string, LanguageModel> {
-    return { ...this.options.models };
+  models(): string[] {
+    return Object.keys(this.options.models);
   }
 }

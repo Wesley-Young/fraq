@@ -53,9 +53,8 @@ test('AiPlugin registers multiple provider aliases, default model, and all concr
   await ctx.start();
 
   const service = ctx.resolve(AiService);
-  const models = service.models();
 
-  assert.deepEqual(Object.keys(models), ['openai/primary', 'openai/mini', 'anthropic/sonnet']);
+  assert.deepEqual(service.models(), ['openai/primary', 'openai/mini', 'anthropic/sonnet']);
   assert.equal(service.model(), sonnet);
   assert.equal(service.model('openai/primary'), primary);
   assert.equal(service.model('fast'), mini);
