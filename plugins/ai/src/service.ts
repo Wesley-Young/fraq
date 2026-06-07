@@ -28,6 +28,10 @@ export class AiService {
   }
 
   constructor(private readonly options: AiServiceOptions) {
+    if (!options.models[options.defaultModel]) {
+      throw new Error(`Invalid default model "${options.defaultModel}": model does not exist.`);
+    }
+
     // Check aliases point to valid models
     for (const [alias, target] of Object.entries(options.aliases)) {
       if (!options.models[target]) {

@@ -1,59 +1,10 @@
-import { Context } from '@fraqjs/fraq';
-import { createMockMilkyClient } from '@fraqjs/mock';
-import { generateText, jsonSchema, simulateReadableStream, streamText, tool } from 'ai';
-import { MockLanguageModelV3 } from 'ai/test';
+import { generateText, jsonSchema, streamText, tool } from 'ai';
 
-import AiPlugin, { AiService } from '../src';
+import { AiService } from '../src';
+import { mockLanguageModel, mockToolCallModel } from './util/mock';
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-
-function mockLanguageModel(text: string, modelId = 'mock-language-model'): MockLanguageModelV3 {
-  return new MockLanguageModelV3({
-    modelId,
-    doGenerate: async () => ({
-      content: [{ type: 'text', text }],
-      finishReason: { unified: 'stop', raw: undefined },
-      usage: {
-        inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined },
-        outputTokens: { total: 1, text: 1, reasoning: undefined },
-      },
-      warnings: [],
-    }),
-    doStream: async () => ({
-      stream: simulateReadableStream({
-        chunks: [
-          { type: 'text-start', id: 'text-1' },
-          { type: 'text-delta', id: 'text-1', delta: text },
-          { type: 'text-end', id: 'text-1' },
-          {
-            type: 'finish',
-            finishReason: { unified: 'stop', raw: undefined },
-            usage: {
-              inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined },
-              outputTokens: { total: 1, text: 1, reasoning: undefined },
-            },
-          },
-        ],
-      }),
-    }),
-  });
-}
-
-function mockToolCallModel(toolName: string, input: unknown): MockLanguageModelV3 {
-  return new MockLanguageModelV3({
-    modelId: 'mock-tool-model',
-    doGenerate: async () => ({
-      content: [{ type: 'tool-call', toolCallId: 'call-1', toolName, input: JSON.stringify(input) }],
-      finishReason: { unified: 'tool-calls', raw: undefined },
-      usage: {
-        inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined },
-        outputTokens: { total: 1, text: 1, reasoning: undefined },
-      },
-      warnings: [],
-    }),
-  });
-}
 
 test('AiService exposes the configured model', () => {
   const model = mockLanguageModel('hello');
@@ -66,6 +17,98 @@ test('AiService exposes the configured model', () => {
   });
 
   assert.equal(service.model(), model);
+});
+
+test('AiService resolves models by name and alias', () => {
+  const primary = mockLanguageModel('primary');
+  const fallback = mockLanguageModel('fallback');
+  const service = new AiService({
+    models: {
+      'openai/gpt-4o': primary,
+      'anthropic/claude-sonnet': fallback,
+    },
+    aliases: {
+      openai: 'openai/gpt-4o',
+      claude: 'anthropic/claude-sonnet',
+    },
+    defaultModel: 'anthropic/claude-sonnet',
+  });
+
+  assert.equal(service.model(), fallback);
+  assert.equal(service.model('openai/gpt-4o'), primary);
+  assert.equal(service.model('openai'), primary);
+  assert.equal(service.model('claude'), fallback);
+  assert.equal(service.hasModel('openai/gpt-4o'), true);
+  assert.equal(service.hasModel('openai'), true);
+  assert.equal(service.hasModel('missing'), false);
+});
+
+test('AiService exposes a defensive copy of all concrete models', () => {
+  const first = mockLanguageModel('first');
+  const second = mockLanguageModel('second');
+  const service = new AiService({
+    models: {
+      'test/first': first,
+      'test/second': second,
+    },
+    aliases: {
+      first: 'test/first',
+    },
+    defaultModel: 'test/first',
+  });
+
+  const models = service.models();
+
+  assert.deepEqual(Object.keys(models), ['test/first', 'test/second']);
+  assert.equal(models['test/first'], first);
+  assert.equal(models['test/second'], second);
+
+  delete models['test/first'];
+
+  assert.equal(service.model('test/first'), first);
+  assert.equal(service.model('first'), first);
+});
+
+test('AiService throws for unknown model names', () => {
+  const service = new AiService({
+    models: {
+      'test/model': mockLanguageModel('hello'),
+    },
+    aliases: {},
+    defaultModel: 'test/model',
+  });
+
+  assert.throws(() => service.model('missing'), /Model not found: missing/);
+});
+
+test('AiService constructor rejects aliases that point to missing models', () => {
+  assert.throws(
+    () =>
+      new AiService({
+        models: {
+          'test/model': mockLanguageModel('hello'),
+        },
+        aliases: {
+          missing: 'test/missing',
+        },
+        defaultModel: 'test/model',
+      }),
+    /Invalid alias "missing": target model "test\/missing" does not exist/,
+  );
+});
+
+test('AiService constructor rejects a missing default model', () => {
+  assert.throws(
+    () =>
+      new AiService({
+        models: {
+          'test/model': mockLanguageModel('hello'),
+        },
+        aliases: {},
+        defaultModel: 'test/missing',
+      }),
+    /Invalid default model "test\/missing": model does not exist/,
+  );
 });
 
 test('the exposed model works with the raw generateText function', async () => {
@@ -130,23 +173,4 @@ test('the exposed model supports tool calling with full type inference', async (
   assert.equal(result.toolCalls[0]?.toolName, 'weather');
   assert.deepEqual(result.toolCalls[0]?.input, { city: 'Tokyo' });
   assert.equal(result.toolResults[0]?.output, 'sunny in Tokyo');
-});
-
-test('AiPlugin provides AiService through the context', async () => {
-  const ctx = Context.fromClient(createMockMilkyClient());
-
-  ctx.install(AiPlugin, {
-    providers: {
-      test: {
-        model: mockLanguageModel('from plugin'),
-      },
-    },
-  });
-  await ctx.start();
-
-  const result = await generateText({ model: ctx.resolve(AiService).model(), prompt: 'hi' });
-
-  assert.equal(result.text, 'from plugin');
-
-  await ctx.stop();
 });
