@@ -13,13 +13,6 @@ function isProviderConfig(config: ProviderConfig | Record<string, LanguageModel>
   return 'sdk' in config && 'options' in config && 'models' in config;
 }
 
-/**
- * A thin Fraq plugin around the Vercel AI SDK.
- *
- * It provides an {@link AiService} that exposes a configured language model via
- * `ctx.ai.model`, so other plugins can inject it and pass the model directly to
- * the AI SDK Core functions imported from `ai`.
- */
 export const AiPlugin = definePlugin({
   name: 'ai',
   provides: [AiService],
@@ -51,6 +44,7 @@ export const AiPlugin = definePlugin({
   },
 });
 
+export * from './provider';
 export * from './service';
 
 export default AiPlugin;
