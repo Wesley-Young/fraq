@@ -6,6 +6,7 @@ import { AiService } from './service';
 
 export interface AiPluginOptions {
   providers: Record<string, ProviderConfig | Record<string, LanguageModel>>;
+  aliases?: Record<string, string>;
   defaultModel?: string;
 }
 
@@ -38,6 +39,7 @@ export const AiPlugin = definePlugin({
       AiService,
       new AiService({
         models: models,
+        aliases: options.aliases ?? {},
         defaultModel: options.defaultModel ?? Object.keys(models)[0],
       }),
     );

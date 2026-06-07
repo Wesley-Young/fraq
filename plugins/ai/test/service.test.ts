@@ -61,6 +61,7 @@ test('AiService exposes the configured model', () => {
     models: {
       'test/model': model,
     },
+    aliases: {},
     defaultModel: 'test/model',
   });
 
@@ -72,6 +73,7 @@ test('the exposed model works with the raw generateText function', async () => {
     models: {
       'test/model': mockLanguageModel('hello from the model'),
     },
+    aliases: {},
     defaultModel: 'test/model',
   });
 
@@ -85,6 +87,7 @@ test('the exposed model works with the raw streamText function', async () => {
     models: {
       'test/model': mockLanguageModel('streamed text'),
     },
+    aliases: {},
     defaultModel: 'test/model',
   });
 
@@ -103,6 +106,7 @@ test('the exposed model supports tool calling with full type inference', async (
     models: {
       'test/model': mockToolCallModel('weather', { city: 'Tokyo' }),
     },
+    aliases: {},
     defaultModel: 'test/model',
   });
 
