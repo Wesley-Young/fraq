@@ -57,23 +57,38 @@ function mockToolCallModel(toolName: string, input: unknown): MockLanguageModelV
 
 test('AiService exposes the configured model', () => {
   const model = mockLanguageModel('hello');
-  const service = new AiService({ model });
+  const service = new AiService({
+    models: {
+      'test/model': model,
+    },
+    defaultModel: 'test/model',
+  });
 
-  assert.equal(service.model, model);
+  assert.equal(service.model(), model);
 });
 
 test('the exposed model works with the raw generateText function', async () => {
-  const service = new AiService({ model: mockLanguageModel('hello from the model') });
+  const service = new AiService({
+    models: {
+      'test/model': mockLanguageModel('hello from the model'),
+    },
+    defaultModel: 'test/model',
+  });
 
-  const result = await generateText({ model: service.model, prompt: 'hi' });
+  const result = await generateText({ model: service.model(), prompt: 'hi' });
 
   assert.equal(result.text, 'hello from the model');
 });
 
 test('the exposed model works with the raw streamText function', async () => {
-  const service = new AiService({ model: mockLanguageModel('streamed text') });
+  const service = new AiService({
+    models: {
+      'test/model': mockLanguageModel('streamed text'),
+    },
+    defaultModel: 'test/model',
+  });
 
-  const result = streamText({ model: service.model, prompt: 'hi' });
+  const result = streamText({ model: service.model(), prompt: 'hi' });
 
   let collected = '';
   for await (const part of result.textStream) {
@@ -84,10 +99,15 @@ test('the exposed model works with the raw streamText function', async () => {
 });
 
 test('the exposed model supports tool calling with full type inference', async () => {
-  const service = new AiService({ model: mockToolCallModel('weather', { city: 'Tokyo' }) });
+  const service = new AiService({
+    models: {
+      'test/model': mockToolCallModel('weather', { city: 'Tokyo' }),
+    },
+    defaultModel: 'test/model',
+  });
 
   const result = await generateText({
-    model: service.model,
+    model: service.model(),
     prompt: 'What is the weather in Tokyo?',
     tools: {
       weather: tool({
@@ -111,10 +131,16 @@ test('the exposed model supports tool calling with full type inference', async (
 test('AiPlugin provides AiService through the context', async () => {
   const ctx = Context.fromClient(createMockMilkyClient());
 
-  ctx.install(AiPlugin, { model: mockLanguageModel('from plugin') });
+  ctx.install(AiPlugin, {
+    providers: {
+      test: {
+        model: mockLanguageModel('from plugin'),
+      },
+    },
+  });
   await ctx.start();
 
-  const result = await generateText({ model: ctx.resolve(AiService).model, prompt: 'hi' });
+  const result = await generateText({ model: ctx.resolve(AiService).model(), prompt: 'hi' });
 
   assert.equal(result.text, 'from plugin');
 

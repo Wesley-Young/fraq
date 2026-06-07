@@ -10,39 +10,43 @@ const ctx = Context.fromUrl('http://localhost:30001', {
 });
 
 ctx.install(AiPlugin, {
-  model: new MockLanguageModelV3({
-    async doGenerate() {
-      return {
-        content: [{ type: 'text', text: 'Hello from the mock model!' }],
-        finishReason: { unified: 'stop', raw: undefined },
-        usage: {
-          inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined },
-          outputTokens: { total: 5, text: 5, reasoning: undefined },
-        },
-        warnings: [],
-      };
-    },
-    async doStream() {
-      return {
-        stream: simulateReadableStream({
-          chunks: [
-            { type: 'text-start', id: '1' },
-            { type: 'text-delta', id: '1', delta: 'Hello ' },
-            { type: 'text-delta', id: '1', delta: 'stream!' },
-            { type: 'text-end', id: '1' },
-            {
-              type: 'finish',
-              finishReason: { unified: 'stop', raw: undefined },
-              usage: {
-                inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined },
-                outputTokens: { total: 2, text: 2, reasoning: undefined },
-              },
+  providers: {
+    test: {
+      model: new MockLanguageModelV3({
+        async doGenerate() {
+          return {
+            content: [{ type: 'text', text: 'Hello from the mock model!' }],
+            finishReason: { unified: 'stop', raw: undefined },
+            usage: {
+              inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined },
+              outputTokens: { total: 5, text: 5, reasoning: undefined },
             },
-          ],
-        }),
-      };
+            warnings: [],
+          };
+        },
+        async doStream() {
+          return {
+            stream: simulateReadableStream({
+              chunks: [
+                { type: 'text-start', id: '1' },
+                { type: 'text-delta', id: '1', delta: 'Hello ' },
+                { type: 'text-delta', id: '1', delta: 'stream!' },
+                { type: 'text-end', id: '1' },
+                {
+                  type: 'finish',
+                  finishReason: { unified: 'stop', raw: undefined },
+                  usage: {
+                    inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined },
+                    outputTokens: { total: 2, text: 2, reasoning: undefined },
+                  },
+                },
+              ],
+            }),
+          };
+        },
+      }),
     },
-  }),
+  },
 });
 
 ctx.install(
@@ -53,10 +57,10 @@ ctx.install(
     },
     apply() {},
     async start(ctx) {
-      const { text } = await generateText({ model: ctx.ai.model, prompt: 'Say hello.' });
+      const { text } = await generateText({ model: ctx.ai.model(), prompt: 'Say hello.' });
       console.log('generateText:', text);
 
-      const stream = streamText({ model: ctx.ai.model, prompt: 'Stream hello.' });
+      const stream = streamText({ model: ctx.ai.model(), prompt: 'Stream hello.' });
       let streamed = '';
       for await (const delta of stream.textStream) {
         streamed += delta;

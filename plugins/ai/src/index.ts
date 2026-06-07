@@ -1,8 +1,17 @@
 import { definePlugin } from '@fraqjs/fraq';
+import type { LanguageModel } from 'ai';
 
-import { AiService, type AiServiceOptions } from './service';
+import { type ProviderConfig, resolveLanguageModels } from './provider';
+import { AiService } from './service';
 
-export type AiPluginOptions = AiServiceOptions;
+export interface AiPluginOptions {
+  providers: Record<string, ProviderConfig | Record<string, LanguageModel>>;
+  defaultModel?: string;
+}
+
+function isProviderConfig(config: ProviderConfig | Record<string, LanguageModel>): config is ProviderConfig {
+  return 'sdk' in config && 'options' in config && 'models' in config;
+}
 
 /**
  * A thin Fraq plugin around the Vercel AI SDK.
@@ -14,8 +23,31 @@ export type AiPluginOptions = AiServiceOptions;
 export const AiPlugin = definePlugin({
   name: 'ai',
   provides: [AiService],
-  apply(ctx, options: AiPluginOptions) {
-    ctx.provide(AiService, new AiService(options));
+  async apply(ctx, options: AiPluginOptions) {
+    const models: Record<string, LanguageModel> = {};
+    for (const [name, config] of Object.entries(options.providers)) {
+      if (isProviderConfig(config)) {
+        const resolvedModels = await resolveLanguageModels(config);
+        resolvedModels.forEach((model, idx) => {
+          const modelName = `${name}/${config.models[idx]}`;
+          models[modelName] = model;
+        });
+      } else {
+        Object.entries(config).forEach(([modelName, model]) => {
+          models[`${name}/${modelName}`] = model;
+        });
+      }
+    }
+    if (Object.keys(models).length === 0) {
+      throw new Error('No language models resolved from the provided AI SDK configurations.');
+    }
+    ctx.provide(
+      AiService,
+      new AiService({
+        models: models,
+        defaultModel: options.defaultModel ?? Object.keys(models)[0],
+      }),
+    );
   },
 });
 
