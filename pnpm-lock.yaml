@@ -186,6 +186,15 @@ importers:
         specifier: ^19.0.0
         version: 19.2.6
     devDependencies:
+      '@fontsource-variable/inter':
+        specifier: ^5.2.8
+        version: 5.2.8
+      '@fontsource-variable/roboto':
+        specifier: ^5.2.10
+        version: 5.2.10
+      '@fraqjs/mock':
+        specifier: workspace:^
+        version: link:../../packages/mock
       '@types/react':
         specifier: ^19.2.15
         version: 19.2.15
@@ -510,6 +519,12 @@ packages:
 
   '@floating-ui/utils@0.2.11':
     resolution: {integrity: sha512-RiB/yIh78pcIxl6lLMG0CgBXAZ2Y0eVHqMPYugu+9U0AeT6YBeiJpf7lbdJNIugFP5SIjwNRgo4DhR1Qxi26Gg==}
+
+  '@fontsource-variable/inter@5.2.8':
+    resolution: {integrity: sha512-kOfP2D+ykbcX/P3IFnokOhVRNoTozo5/JxhAIVYLpea/UBmCQ/YWPBfWIDuBImXX/15KH+eKh4xpEUyS2sQQGQ==}
+
+  '@fontsource-variable/roboto@5.2.10':
+    resolution: {integrity: sha512-LJ0iLg6aHbLzN515gyHzmdTqJzd9NlI95cCg1DW0F5G7KkFqRLBBKBbqEJx4nSu4aby3IKmw3ZH6Fe928IfaSQ==}
 
   '@fumadocs/cli@1.3.10':
     resolution: {integrity: sha512-anpo1S+t8NzxAF9FycA+fH1CYsC33Hb6CjHv2CXkzum8M1N5lsiARCPFe7Fdj9r4xlQot0NI+9+z+lrNkFZuxg==}
@@ -3368,6 +3383,10 @@ snapshots:
       react-dom: 19.2.6(react@19.2.6)
 
   '@floating-ui/utils@0.2.11': {}
+
+  '@fontsource-variable/inter@5.2.8': {}
+
+  '@fontsource-variable/roboto@5.2.10': {}
 
   '@fumadocs/cli@1.3.10':
     dependencies:

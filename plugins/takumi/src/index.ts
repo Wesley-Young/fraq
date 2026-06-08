@@ -1,18 +1,24 @@
 import { definePlugin } from '@fraqjs/fraq';
-import { type ConstructRendererOptions, Renderer } from '@takumi-rs/core';
 
-import { TakumiService } from './service';
+import { TakumiService, type TakumiServiceOptions } from './service';
 
-export interface TakumiPluginOptions {
-  renderer?: ConstructRendererOptions;
+import { createRequire } from 'node:module';
+
+export interface TakumiPluginOptions extends TakumiServiceOptions {
+  loadBuiltinFonts?: boolean;
 }
 
 export const TakumiPlugin = definePlugin({
   name: 'takumi',
   provides: [TakumiService],
-  apply(ctx, options?: TakumiPluginOptions) {
-    const renderer = new Renderer(options?.renderer);
-    ctx.provide(TakumiService, new TakumiService(renderer));
+  async apply(ctx, options?: TakumiPluginOptions) {
+    const service = new TakumiService(ctx, options ?? {});
+    if (options?.loadBuiltinFonts ?? true) {
+      ctx.logger.debug('Loading built-in fonts...');
+      const require = createRequire(import.meta.url);
+      await service.registerFontFamily('Noto Sans SC', [require.resolve('../fonts/NotoSansSC-VariableFont_wght.ttf')]);
+    }
+    ctx.provide(TakumiService, service);
   },
 });
 

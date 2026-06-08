@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "description": "Takumi integration plugin for Fraq",
   "files": [
-    "dist"
+    "dist","fonts"
   ],
   "main": "dist/index.mjs",
   "typings": "dist/index.d.mts",
@@ -30,6 +30,9 @@
     "@takumi-rs/helpers": "^1.7.0"
   },
   "devDependencies": {
+    "@fontsource-variable/inter": "^5.2.8",
+    "@fontsource-variable/roboto": "^5.2.10",
+    "@fraqjs/mock": "workspace:^",
     "@types/react": "^19.2.15"
   }
 }
