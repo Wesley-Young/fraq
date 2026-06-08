@@ -73,6 +73,22 @@ const img2 = await ctx.takumi.renderHtml(`
 
 `renderJsx` 和 `renderHtml` 都接受三个参数。第一个参数是需要渲染的内容，后两个参数分别是传递给 `Renderer` 的渲染选项和可选的 `AbortSignal`。
 
+### Emoji 支持
+
+`TakumiService` 还提供了 `renderJsxWithEmoji` 和 `renderHtmlWithEmoji` 方法，用于渲染包含 Emoji 的内容。这两个方法与 `renderJsx` 和 `renderHtml` 相比，在末尾多了一个 `emojiType: EmojiType` 参数，用于指定使用哪种 Emoji 风格。
+
+```typescript
+type EmojiType =
+  | 'twemoji'
+  | 'blobmoji'
+  | 'noto' // 默认值
+  | 'openmoji'
+  | 'fluent'
+  | 'fluentFlat';
+```
+
+为了保持与 Noto Sans SC 字体的风格一致，`renderJsxWithEmoji` 和 `renderHtmlWithEmoji` 默认使用 `noto` 作为 Emoji 风格。
+
 ## 使用字体
 
 `@fraqjs/plugin-takumi` 内置了多种字体：
