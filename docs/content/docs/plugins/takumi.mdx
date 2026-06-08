@@ -1,0 +1,126 @@
+---
+title: '@fraqjs/plugin-takumi'
+---
+
+<NpmBadge packageName="@fraqjs/plugin-takumi" />
+
+`@fraqjs/plugin-takumi` 提供了基于 [Takumi](https://takumi.kane.tw/) 的图片渲染服务。
+
+## 安装与配置
+
+将插件添加至 `dependencies`，然后在创建 `Context` 时引入并配置插件：
+
+```typescript
+import TakumiPlugin from '@fraqjs/plugin-takumi';
+
+ctx.install(TakumiPlugin, {
+  // 在这里传入 TakumiPlugin 的配置选项
+});
+```
+
+`TakumiPlugin` 有如下配置项：
+
+- `renderer`：传递给 Takumi 渲染器（`Renderer`）的选项，包含如下字段：
+  - `persistentImages`：预先加载的图像。
+  - `fonts` 和 `loadDefaultFonts`：通常情况下无需设置，Fraq 会自动加载内置字体，详见后续部分。
+- `onFontRegisterConflict`：当注册字体时发生冲突（即尝试注册一个已存在的字体名称）时的处理方法，可选值有：
+  - `error`：抛出错误。
+  - `warn-and-ignore`：发出警告并忽略新的注册，这是默认行为。
+  - `warn-and-replace`：发出警告并替换已存在的字体。
+- `loadBuiltinFonts`：是否加载 Fraq 提供的内置字体，默认为 `true`。
+
+如果你是插件开发者，请将本插件添加到项目的 `peerDependencies` 中，并在自己的插件中声明依赖：
+
+```typescript
+import { TakumiService } from '@fraqjs/plugin-takumi';
+
+definePlugin({
+  name: 'my-plugin',
+  inject: {
+    takumi: TakumiService,
+  },
+  apply(ctx) {
+    // 使用 ctx.takumi 来访问 TakumiService
+  },
+});
+```
+
+此外，为了在编写插件的过程中使用 JSX 语法，你需要：
+
+- 将 `react` 添加为 `peerDependencies`；
+- 将 `@types/react` 添加为 `devDependencies`；
+- 在 `tsconfig.json` 中将 `jsx` 选项设置为 `react-jsx`；
+- 使用 `.tsx` 而非 `.ts` 作为扩展名。
+
+## 渲染 JSX 与 HTML
+
+`TakumiService` 提供了 `renderJsx` 和 `renderHtml` 方法，分别用于渲染 JSX 和 HTML：
+
+```tsx
+const img = await ctx.takumi.renderJsx(
+  <div tw="p-4 bg-gray-100 rounded">Hello, Takumi!</div>,
+);
+// img: Buffer<ArrayBufferLike>
+
+const img2 = await ctx.takumi.renderHtml(`
+<div style="padding: 16px; background-color: #f3f4f6; border-radius: 8px;">
+  Hello, Takumi!
+</div>
+`);
+```
+
+在使用 `renderJsx` 时，可以使用 Tailwind CSS 的语法来快速设置样式，例如 `tw="p-4 bg-gray-100 rounded"`；当然，也可以使用 `style` 属性来直接设置样式。Takumi 支持的样式列表见 [“Reference“ 章节](https://takumi.kane.tw/docs/reference#style-properties)。
+
+`renderJsx` 和 `renderHtml` 都接受三个参数。第一个参数是需要渲染的内容，后两个参数分别是传递给 `Renderer` 的渲染选项和可选的 `AbortSignal`。
+
+## 使用字体
+
+`@fraqjs/plugin-takumi` 内置了多种字体：
+
+- `Inter`：开源的无衬线西文字体。
+- `Roboto Mono`：开源的等宽西文字体。
+- `Noto Sans SC`：开源的无衬线简体中文字体。
+
+上述字体均使用 SIL Open Font License 1.1 协议发布，`@fraqjs/plugin-takumi` 在发布的 npm 包中包含了上述字体的完整 TTF 文件以及 `OFL.txt` 许可证文件。
+
+{/* prettier-ignore */}
+<Callout>
+由于包含了静态资源，`@fraqjs/plugin-takumi` 的包体积较大（约 20MB），但我们认为这是合理并且可以接受的，主要原因有：
+
+- 对于机器人的部署环境来说，几十 MB 的体积通常是可以接受的；
+- 这些字体文件的体积是无法通过代码优化来减少的；
+- 直接包含字体文件可以确保在任何环境下都能获得一致的渲染效果，而无需担心字体文件的加载问题。
+
+</Callout>
+{/* prettier-ignore-end */}
+
+你可以在 JSX 的 `style` 属性中直接使用上述字体：
+
+```tsx
+// 中文字体使用 Noto Sans SC，英文和数字使用 Inter
+const img = await ctx.takumi.renderJsx(
+  <div style={{ fontFamily: 'Inter, Noto Sans SC' }}>你好，T4kum1!</div>,
+);
+```
+
+此外，也可以在插件加载阶段使用 `ctx.takumi.registerFontFamily` 来注册自定义字体，在注册时需要提供完整的字体数据，例如从 TTF 文件中读取或从网络获取。
+
+## 加载图像
+
+出于内容安全的考虑，Takumi 不允许直接从网络加载图像资源。需要渲染图像时，你需要通过 `resourcesOptions.cache` 参数来提供一个 `Map<string, ArrayBuffer>` 实例，Takumi 会从这个 Map 中查找所需的图像资源。
+
+```tsx
+const cache = new Map<string, ArrayBuffer>();
+// cache.set('https://example.com/image.png', arrayBufferOfImage);
+
+const img = await ctx.takumi.renderJsx(
+  <img src="https://example.com/image.png" alt="Example" />,
+  {
+    resourcesOptions: {
+      cache,
+    },
+  },
+);
+```
+
+此外，对于一些常用资源，例如 Logo 图标等，你也可以选择将它们预先加载到 `renderer` 的 `persistentImages` 选项中。
