@@ -133,7 +133,7 @@ const { text } = await generateText({
 console.log(text);
 ```
 
-## 流式生成文本
+### 流式生成文本
 
 `streamText` 会返回一个流式结果，你可以通过 `textStream` 异步迭代器逐段读取生成的文本：
 
@@ -150,7 +150,7 @@ for await (const delta of result.textStream) {
 }
 ```
 
-## 生成结构化数据
+### 生成结构化数据
 
 `generateText` 和 `streamText` 都支持通过 `output` 选项来指定生成结果的格式：
 
@@ -182,7 +182,7 @@ const { output } = await generateText({
 </Callout>
 {/* prettier-ignore-end */}
 
-## 工具调用
+### 工具调用
 
 `generateText` 和 `streamText` 都支持工具调用（Tool Calling），你可以通过 `tools` 选项让模型在生成过程中调用你定义的函数：
 
