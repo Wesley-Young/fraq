@@ -4,7 +4,8 @@
   "version": "0.1.0",
   "description": "Takumi integration plugin for Fraq",
   "files": [
-    "dist","fonts"
+    "dist",
+    "fonts"
   ],
   "main": "dist/index.mjs",
   "typings": "dist/index.d.mts",
