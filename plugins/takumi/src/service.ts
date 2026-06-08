@@ -18,14 +18,26 @@ export class TakumiService implements Disposable {
 
   constructor(readonly renderer: Renderer) {}
 
-  async renderJsx(jsx: ReactNode | ReactElementLike, renderOptions?: RenderOptions): Promise<Buffer> {
+  async renderJsx(
+    jsx: ReactNode | ReactElementLike,
+    renderOptions?: RenderOptions,
+    signal?: AbortSignal,
+  ): Promise<Buffer> {
     const { node, stylesheets } = await fromJsx(jsx);
-    return this.renderer.render(node, withMergedStylesheets(stylesheets, renderOptions), this.abortController.signal);
+    return this.renderer.render(
+      node,
+      withMergedStylesheets(stylesheets, renderOptions),
+      AbortSignal.any([signal, this.abortController.signal].filter((signal) => signal !== undefined)),
+    );
   }
 
-  async renderHtml(html: string, renderOptions?: RenderOptions): Promise<Buffer> {
+  async renderHtml(html: string, renderOptions?: RenderOptions, signal?: AbortSignal): Promise<Buffer> {
     const { node, stylesheets } = fromHtml(html);
-    return this.renderer.render(node, withMergedStylesheets(stylesheets, renderOptions), this.abortController.signal);
+    return this.renderer.render(
+      node,
+      withMergedStylesheets(stylesheets, renderOptions),
+      AbortSignal.any([signal, this.abortController.signal].filter((signal) => signal !== undefined)),
+    );
   }
 
   dispose() {
