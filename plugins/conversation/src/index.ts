@@ -1,4 +1,5 @@
-import { definePlugin } from '../../../packages/fraq/dist/index.mjs';
+import { definePlugin } from '@fraqjs/fraq';
+
 import { ConversationService, type ConversationServiceOptions } from './service';
 
 export const ConversationPlugin = definePlugin({

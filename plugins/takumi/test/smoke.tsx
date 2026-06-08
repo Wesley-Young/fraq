@@ -1,7 +1,7 @@
+import { Context, definePlugin, msg, param, seg } from '@fraqjs/fraq';
 import { createSimpleLogHandler } from '@fraqjs/mock';
 import { astToJSX, parser } from 'markdown-to-jsx/react';
 
-import { Context, definePlugin, msg, param, seg } from '../../../packages/fraq/dist/index.mjs';
 import TakumiPlugin, { TakumiService } from '../src';
 
 const ctx = Context.fromUrl('http://localhost:30001/', {
