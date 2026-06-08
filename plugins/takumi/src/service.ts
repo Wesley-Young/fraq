@@ -10,12 +10,12 @@ export class TakumiService implements Disposable {
 
   constructor(readonly renderer: Renderer) {}
 
-  async renderJsx(jsx: ReactNode | ReactElementLike, renderOptions?: RenderOptions) {
+  async renderJsx(jsx: ReactNode | ReactElementLike, renderOptions?: RenderOptions): Promise<Buffer> {
     const { node, stylesheets } = await fromJsx(jsx);
     return this.renderer.render(node, { stylesheets, ...renderOptions }, this.abortController.signal);
   }
 
-  async renderHtml(html: string, renderOptions?: RenderOptions) {
+  async renderHtml(html: string, renderOptions?: RenderOptions): Promise<Buffer> {
     const { node, stylesheets } = fromHtml(html);
     return this.renderer.render(node, { stylesheets, ...renderOptions }, this.abortController.signal);
   }
