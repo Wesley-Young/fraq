@@ -1,4 +1,5 @@
 import { createSimpleLogHandler } from '@fraqjs/mock';
+import { astToJSX, parser } from 'markdown-to-jsx/react';
 
 import { Context, definePlugin, msg, param, seg } from '../../../packages/fraq/dist/index.mjs';
 import TakumiPlugin, { TakumiService } from '../src';
@@ -21,14 +22,37 @@ ctx.install(
           content: param.greedy(),
         },
         async execute(session, { content }) {
+          const ast = parser(content);
+          const jsx = astToJSX(ast, {
+            overrides: {
+              code: {
+                props: {
+                  style: {
+                    fontFamily: 'Roboto Mono, Noto Sans SC',
+                  },
+                },
+              },
+              pre: {
+                props: {
+                  style: {
+                    fontFamily: 'Roboto Mono, Noto Sans SC',
+                  },
+                },
+              },
+            },
+          });
           const img = await ctx.takumi.renderJsx(
-            <div tw="flex flex-col justify-center w-full h-full px-5 bg-white text-gray-900">
-              <h2 tw="font-bold" style={{ fontFamily: 'Inter, Noto Sans SC' }}>
-                {content}
-              </h2>
+            <div
+              tw="px-5 bg-white"
+              style={{
+                fontFamily: 'Inter, Noto Sans SC',
+              }}
+            >
+              {jsx}
             </div>,
             {
-              devicePixelRatio: 3.0,
+              width: 800,
+              devicePixelRatio: 2.0,
             },
           );
           const base64 = `base64://${img.toString('base64')}`;
