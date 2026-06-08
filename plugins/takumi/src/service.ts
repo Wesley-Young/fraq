@@ -44,7 +44,7 @@ export class TakumiService implements Disposable {
     options: TakumiServiceOptions,
   ) {
     this.renderer = new Renderer(options.renderer);
-    this.onFontRegisterConflict = options.onFontRegisterConflict ?? 'error';
+    this.onFontRegisterConflict = options.onFontRegisterConflict ?? 'warn-and-ignore';
   }
 
   async registerFontFamily(family: string, fonts: (string | PathBasedFontDetails | Font)[], signal?: AbortSignal) {
