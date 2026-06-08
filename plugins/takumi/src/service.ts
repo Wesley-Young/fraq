@@ -1,6 +1,13 @@
 import type { Context, Disposable } from '@fraqjs/fraq';
-import { type ConstructRendererOptions, type Font, Renderer, type RenderOptions } from '@takumi-rs/core';
-import type { ReactElementLike } from '@takumi-rs/helpers';
+import {
+  type ConstructRendererOptions,
+  extractResourceUrls,
+  type Font,
+  Renderer,
+  type RenderOptions,
+} from '@takumi-rs/core';
+import { fetchResources, type Node, type ReactElementLike } from '@takumi-rs/helpers';
+import { type EmojiType, extractEmojis } from '@takumi-rs/helpers/emoji';
 import { fromHtml } from '@takumi-rs/helpers/html';
 import { fromJsx } from '@takumi-rs/helpers/jsx';
 import type { ReactNode } from 'react';
@@ -95,6 +102,24 @@ export class TakumiService implements Disposable {
     );
   }
 
+  async renderJsxWithEmoji(
+    jsx: ReactNode | ReactElementLike,
+    renderOptions?: RenderOptions,
+    signal?: AbortSignal,
+    emojiType: EmojiType = 'noto',
+  ): Promise<Buffer> {
+    const { node, stylesheets } = await fromJsx(jsx);
+    const { node: processedNode, fetchedResources } = await this.processEmoji(node, emojiType);
+    return this.renderer.render(
+      processedNode,
+      withMergedStylesheets(stylesheets, {
+        ...renderOptions,
+        fetchedResources: [...fetchedResources, ...(renderOptions?.fetchedResources ?? [])],
+      }),
+      combineAbortSignals(signal, this.abortController.signal),
+    );
+  }
+
   async renderHtml(html: string, renderOptions?: RenderOptions, signal?: AbortSignal): Promise<Buffer> {
     const { node, stylesheets } = fromHtml(html);
     return this.renderer.render(
@@ -102,6 +127,31 @@ export class TakumiService implements Disposable {
       withMergedStylesheets(stylesheets, renderOptions),
       combineAbortSignals(signal, this.abortController.signal),
     );
+  }
+
+  async renderHtmlWithEmoji(
+    html: string,
+    renderOptions?: RenderOptions,
+    signal?: AbortSignal,
+    emojiType: EmojiType = 'noto',
+  ): Promise<Buffer> {
+    const { node, stylesheets } = fromHtml(html);
+    const { node: processedNode, fetchedResources } = await this.processEmoji(node, emojiType);
+    return this.renderer.render(
+      processedNode,
+      withMergedStylesheets(stylesheets, {
+        ...renderOptions,
+        fetchedResources: [...fetchedResources, ...(renderOptions?.fetchedResources ?? [])],
+      }),
+      combineAbortSignals(signal, this.abortController.signal),
+    );
+  }
+
+  private async processEmoji(node: Node, emojiType: EmojiType = 'twemoji') {
+    const processedNode = extractEmojis(node, emojiType);
+    const resourceUrls = extractResourceUrls(processedNode);
+    const fetchedResources = await fetchResources(resourceUrls);
+    return { node: processedNode, fetchedResources };
   }
 
   dispose() {
