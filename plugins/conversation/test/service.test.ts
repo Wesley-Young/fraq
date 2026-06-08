@@ -1,6 +1,6 @@
+import { Context, msg, param } from '@fraqjs/fraq';
 import { createMockMilkyClient, inmsg } from '@fraqjs/mock';
 
-import { Context, msg, param } from '../../../packages/fraq/dist/index.mjs';
 import { ConversationService } from '../src';
 
 import assert from 'node:assert/strict';

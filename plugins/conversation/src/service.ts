@@ -7,7 +7,8 @@ import {
   type RouteMatchResult,
   Router,
   type Session,
-} from '../../../packages/fraq/dist/index.mjs';
+} from '@fraqjs/fraq';
+
 import { ConversationAbortionError, ConversationRejectionError } from './error';
 
 export interface ConversationServiceOptions {
