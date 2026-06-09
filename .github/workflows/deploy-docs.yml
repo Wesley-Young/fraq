@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - "docs/**"
-      - "packages/core/package.json"
+      - "packages/fraq/package.json"
       - ".github/workflows/deploy-docs.yml"
   workflow_dispatch:
 
