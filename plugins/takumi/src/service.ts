@@ -47,11 +47,11 @@ export class TakumiService implements Disposable {
   private onFontRegisterConflict: 'error' | 'warn-and-ignore' | 'warn-and-replace';
 
   constructor(
-    private readonly ctx: Context,
-    options: TakumiServiceOptions,
+    options?: TakumiServiceOptions,
+    private readonly ctx?: Context,
   ) {
-    this.renderer = new Renderer(options.renderer);
-    this.onFontRegisterConflict = options.onFontRegisterConflict ?? 'warn-and-ignore';
+    this.renderer = new Renderer(options?.renderer);
+    this.onFontRegisterConflict = options?.onFontRegisterConflict ?? 'warn-and-ignore';
   }
 
   async registerFontFamily(family: string, fonts: (string | PathBasedFontDetails | Font)[], signal?: AbortSignal) {
@@ -60,10 +60,18 @@ export class TakumiService implements Disposable {
       if (this.onFontRegisterConflict === 'error') {
         throw new Error(message);
       } else if (this.onFontRegisterConflict === 'warn-and-ignore') {
-        this.ctx.logger.warn(`${message} Ignoring new registration.`);
+        if (this.ctx) {
+          this.ctx.logger.warn(`${message} Ignoring new registration.`);
+        } else {
+          console.warn(`${message} Ignoring new registration.`);
+        }
         return;
       } else if (this.onFontRegisterConflict === 'warn-and-replace') {
-        this.ctx.logger.warn(`${message} Replacing previous registration.`);
+        if (this.ctx) {
+          this.ctx.logger.warn(`${message} Replacing previous registration.`);
+        } else {
+          console.warn(`${message} Replacing previous registration.`);
+        }
         // Continue with registration
       }
     }

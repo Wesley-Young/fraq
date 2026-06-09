@@ -1,6 +1,3 @@
-import { Context } from '@fraqjs/fraq';
-import { createMockMilkyClient } from '@fraqjs/mock';
-
 import { TakumiService } from '../src';
 
 import fs from 'node:fs/promises';
@@ -33,8 +30,7 @@ function Card({ title, author }: CardProps) {
   );
 }
 
-const ctx = Context.fromClient(createMockMilkyClient());
-const service = new TakumiService(ctx, {});
+const service = new TakumiService();
 
 const require = createRequire(import.meta.url);
 
