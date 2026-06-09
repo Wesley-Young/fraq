@@ -44,6 +44,26 @@ test('dispatches a command and captures typed parameters', async () => {
   assert.deepEqual(calls, [{ count: 3, label: 'apples' }]);
 });
 
+test('dispatches a command registered with the builder syntax', async () => {
+  const router = new Router();
+  let captured: { count: number; label: string } | undefined;
+
+  const command = router
+    .command('add')
+    .arg('count', param.num())
+    .arg('label', param.str())
+    .execute((_session, params) => {
+      captured = params;
+    });
+
+  const handled = await dispatch(router, inmsg`add 3 apples`);
+
+  assert.equal(command.name, 'add');
+  assert.deepEqual(Object.keys(command.pattern), ['count', 'label']);
+  assert.equal(handled, true);
+  assert.deepEqual(captured, { count: 3, label: 'apples' });
+});
+
 test('does not dispatch a command when trailing tokens remain', async () => {
   const router = new Router();
   let called = false;
@@ -121,6 +141,33 @@ test('dispatches grouped commands after matching the group prefix', async () => 
 
   assert.equal(handled, true);
   assert.equal(captured, 42);
+});
+
+test('dispatches builder commands under groups and filters', async () => {
+  const router = new Router();
+  const calls: number[] = [];
+
+  router
+    .group('admin')
+    .command('ban')
+    .arg('userId', param.num())
+    .execute((_session, { userId }) => {
+      calls.push(userId);
+    });
+  router
+    .filter((session) => session.raw.sender_id === 7)
+    .command('secret')
+    .execute((session) => {
+      calls.push(session.raw.sender_id);
+    });
+
+  const rejected = message(inmsg`secret`);
+  const accepted = { ...rejected, sender_id: 7 };
+
+  assert.equal(await dispatch(router, inmsg`admin ban 42`), true);
+  assert.equal(await router.dispatch(session(rejected), rejected), false);
+  assert.equal(await router.dispatch(session(accepted), accepted), true);
+  assert.deepEqual(calls, [42, 7]);
 });
 
 test('matches the first dispatchable branch without running its handler', () => {
@@ -243,12 +290,39 @@ test('dispatches raw patterns without a command prefix', async () => {
   assert.equal(captured, 'anything goes here');
 });
 
+test('dispatches raw patterns registered with the builder syntax', async () => {
+  const router = new Router();
+  let captured = '';
+
+  const rawPattern = router
+    .rawPattern()
+    .arg('content', param.greedy())
+    .execute((_session, { content }) => {
+      captured = content;
+    });
+
+  const handled = await dispatch(router, inmsg`anything goes here`);
+
+  assert.deepEqual(Object.keys(rawPattern.pattern), ['content']);
+  assert.equal(handled, true);
+  assert.equal(captured, 'anything goes here');
+});
+
 test('rejects empty raw patterns and literal-first raw patterns', () => {
   const router = new Router();
 
   assert.throws(() => router.rawPattern({ pattern: {}, execute() {} }), /at least one parameter/);
   assert.throws(
     () => router.rawPattern({ pattern: { start: param.literal('hello') }, execute() {} }),
+    /cannot be a literal/,
+  );
+  assert.throws(() => router.rawPattern().execute(() => {}), /at least one parameter/);
+  assert.throws(
+    () =>
+      router
+        .rawPattern()
+        .arg('start', param.literal('hello'))
+        .execute(() => {}),
     /cannot be a literal/,
   );
 });
@@ -401,6 +475,24 @@ test('rejects catch-all parameters before the end of a pattern', () => {
         pattern: { content: param.catchAll(), label: param.str() },
         execute() {},
       }),
+    /Catch-all parameters must be the last parameter/,
+  );
+  assert.throws(
+    () =>
+      router
+        .command('reply')
+        .arg('content', param.catchAll())
+        .arg('label', param.str())
+        .execute(() => {}),
+    /Catch-all parameters must be the last parameter/,
+  );
+  assert.throws(
+    () =>
+      router
+        .rawPattern()
+        .arg('content', param.catchAll())
+        .arg('label', param.str())
+        .execute(() => {}),
     /Catch-all parameters must be the last parameter/,
   );
 });

@@ -27,15 +27,12 @@ const ctx = Context.fromUrl('<替换成你的 Milky 协议端地址>', {
   // accessToken: '<如果你的 Milky 协议端配置了 token，请在这里添加>',
 });
 
-ctx.router.command({
-  name: 'echo',
-  pattern: {
-    content: param.greedy(),
-  },
-  execute(session, { content }) {
+ctx.router
+  .command('echo')
+  .arg('content', param.greedy())
+  .execute((session, { content }) => {
     session.reply(msg`You said: ${content}`);
-  },
-});
+  });
 
 ctx.start();
 ```
