@@ -1,23 +1,10 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: This file is meant to be used by users of the library, so we want to allow any types for flexibility. */
+/** biome-ignore-all lint/complexity/noBannedTypes: {} is used in CommandBuilder to allow flexible pattern definitions. */
 import type * as types from '../protocol/types';
-import type { Parameter } from './parameter';
+import { type Command, CommandBuilder, type ParamsOf, type Pattern, type RawPattern, type Session } from './command';
 import { Tokenizer } from './tokenizer';
 
-export type Pattern = Record<string, Parameter<any>>;
-export type ParamsOf<P extends Pattern> = { [K in keyof P]: P[K] extends Parameter<infer T> ? T : never };
-export type Executor<P extends Pattern> = (session: Session, params: ParamsOf<P>) => void | Promise<void>;
 export type SessionPredicate = (session: Session) => boolean;
-
-export interface Command<P extends Pattern> {
-  name: string;
-  pattern: P;
-  execute: Executor<P>;
-}
-
-export interface RawPattern<P extends Pattern> {
-  pattern: P;
-  execute: Executor<P>;
-}
 
 export type RouteEntry =
   | { type: 'command'; command: Command<Pattern> }
@@ -33,23 +20,35 @@ export type RouteMatchResult =
   | { type: 'command'; path: string[]; command: Command<Pattern>; params: any }
   | { type: 'rawPattern'; path: string[]; rawPattern: RawPattern<Pattern>; params: any };
 
-export interface Session {
-  raw: types.IncomingMessage;
-  reply(segments: types.OutgoingSegment_ZodInput[]): Promise<void>;
-}
-
 export class Router {
   private readonly entries: RouteEntry[] = [];
   private readonly groups = new Map<string, Router>();
 
-  command<P extends Pattern>(command: Command<P>): this {
+  command(name: string): CommandBuilder;
+  command<P extends Pattern>(command: Command<P>): this;
+  command<P extends Pattern>(command: string | Command<P>): CommandBuilder | this {
+    if (typeof command === 'string') {
+      return new CommandBuilder(command, (builtCommand): Command<{}> => {
+        this.command(builtCommand);
+        return builtCommand;
+      });
+    }
     this.validatePattern(command.pattern);
     // @ts-expect-error
     this.entries.push({ type: 'command', command });
     return this;
   }
 
-  rawPattern<P extends Pattern>(rawPattern: RawPattern<P>): this {
+  rawPattern(): CommandBuilder<{}, RawPattern<{}>>;
+  rawPattern<P extends Pattern>(rawPattern: RawPattern<P>): this;
+  rawPattern<P extends Pattern>(rawPattern?: RawPattern<P>): CommandBuilder<{}, RawPattern<{}>> | this {
+    if (!rawPattern) {
+      return new CommandBuilder('', (builtCommand): RawPattern<{}> => {
+        // Command extends RawPattern, so compatible to provide a "command" here
+        this.rawPattern(builtCommand);
+        return builtCommand;
+      });
+    }
     this.validatePattern(rawPattern.pattern, { rawPattern: true });
     // @ts-expect-error
     this.entries.push({ type: 'rawPattern', rawPattern });

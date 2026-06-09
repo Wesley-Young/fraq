@@ -8,5 +8,6 @@ export * from './protocol/endpoint';
 export * from './protocol/segment';
 export type * as milky from './protocol/types';
 export { milkyPackageVersion, milkyVersion } from './protocol/types';
+export * from './routing/command';
 export * from './routing/parameter';
 export * from './routing/router';
