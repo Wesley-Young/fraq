@@ -175,7 +175,7 @@ npx takumi-preview src/templates/MyCard.tsx
 
 `takumi-preview` 会启动一个 HTTP 服务器，你可以在浏览器中访问终端提示的地址（默认为 `http://127.0.0.1:4649/`）来查看渲染结果。每当你修改了模板文件并保存后，预览页面会自动刷新以显示最新的渲染效果。
 
-预览工具默认使用的渲染选项为 `{ width: 1200, height: 630, devicePixelRatio: 2 }`。你可以通过在模板文件中导出一个名为 `previewRendererOptions` 的对象来覆盖默认选项：
+预览工具默认使用的渲染选项为 `{ devicePixelRatio: 1.5 }`。你可以通过在模板文件中导出一个名为 `previewRendererOptions` 的对象来覆盖默认选项：
 
 ```ts
 import type { RenderOptions } from '@takumi-rs/core';
