@@ -84,22 +84,6 @@ const img2 = await ctx.takumi.renderHtml(`
 
 `renderJsx` 和 `renderHtml` 都接受三个参数。第一个参数是需要渲染的内容，后两个参数分别是传递给 `Renderer` 的渲染选项和可选的 `AbortSignal`。
 
-### Emoji 支持
-
-`TakumiService` 还提供了 `renderJsxWithEmoji` 和 `renderHtmlWithEmoji` 方法，用于渲染包含 Emoji 的内容。这两个方法与 `renderJsx` 和 `renderHtml` 相比，在末尾多了一个 `emojiType: EmojiType` 参数，用于指定使用哪种 Emoji 风格。
-
-```typescript
-type EmojiType =
-  | 'twemoji'
-  | 'blobmoji'
-  | 'noto' // 默认值
-  | 'openmoji'
-  | 'fluent'
-  | 'fluentFlat';
-```
-
-为了保持与 Noto Sans SC 字体的风格一致，`renderJsxWithEmoji` 和 `renderHtmlWithEmoji` 默认使用 `noto` 作为 Emoji 风格。
-
 ## 使用字体
 
 `@fraqjs/plugin-takumi` 内置了多种字体：
@@ -131,6 +115,83 @@ const img = await ctx.takumi.renderJsx(
 ```
 
 此外，也可以在插件加载阶段使用 `ctx.takumi.registerFontFamily` 来注册自定义字体，在注册时需要提供完整的字体数据，例如从 TTF 文件中读取或从网络获取。
+
+## Emoji 支持
+
+`TakumiService` 还提供了 `renderJsxWithEmoji` 和 `renderHtmlWithEmoji` 方法，用于渲染包含 Emoji 的内容。这两个方法与 `renderJsx` 和 `renderHtml` 相比，在末尾多了一个 `emojiType: EmojiType` 参数，用于指定使用哪种 Emoji 风格。
+
+```typescript
+type EmojiType =
+  | 'twemoji'
+  | 'blobmoji'
+  | 'noto' // 默认值
+  | 'openmoji'
+  | 'fluent'
+  | 'fluentFlat';
+```
+
+为了保持与 Noto Sans SC 字体的风格一致，`renderJsxWithEmoji` 和 `renderHtmlWithEmoji` 默认使用 `noto` 作为 Emoji 风格。
+
+## 使用 `takumi-preview`
+
+<NpmBadge packageName="@fraqjs/takumi-preview" />
+
+Fraq 提供了一个名为 `@fraqjs/takumi-preview` 的工具包，用于在开发过程中预览 Takumi 渲染的效果。你可以将其作为开发依赖安装：
+
+```bash
+npm install -D @fraqjs/takumi-preview
+# or
+yarn add -D @fraqjs/takumi-preview
+# or
+pnpm add -D @fraqjs/takumi-preview
+```
+
+为了使用 `takumi-preview`，你需要将你的卡片模板用 `export default` 导出，并且在同一个文件里用 `previewProps` 导出一个对象，指定预览时传递给模板的 props：
+
+```tsx
+// src/templates/MyCard.tsx
+export interface MyCardProps {
+  greetingName: string;
+}
+
+export default function MyCard({ greetingName }: MyCardProps) {
+  return (
+    <div style={{ fontFamily: 'Inter, Noto Sans SC' }}>
+      你好, {greetingName}!
+    </div>
+  );
+}
+
+export const previewProps: MyCardProps = {
+  greetingName: 'T4kum1',
+};
+```
+
+随后，你可以在命令行中运行 `takumi-preview` 来预览渲染效果：
+
+```bash
+npx takumi-preview src/templates/MyCard.tsx
+```
+
+`takumi-preview` 会启动一个 HTTP 服务器，你可以在浏览器中访问终端提示的地址（默认为 `http://127.0.0.1:4649/`）来查看渲染结果。每当你修改了模板文件并保存后，预览页面会自动刷新以显示最新的渲染效果。
+
+预览工具默认使用的渲染选项为 `{ width: 1200, height: 630, devicePixelRatio: 2 }`。你可以通过在模板文件中导出一个名为 `previewRendererOptions` 的对象来覆盖默认选项：
+
+```ts
+import type { RenderOptions } from '@takumi-rs/core';
+
+export const previewRendererOptions: RenderOptions = {
+  width: 800,
+  height: 600,
+  devicePixelRatio: 1,
+};
+```
+
+此外，还可以导出如下的变量或函数：
+
+- `previewUseEmoji`：默认为 `false`，如果设置为 `true`，则预览时会使用 `renderJsxWithEmoji` 来渲染模板。
+- `previewEmojiType`：默认为 `'noto'`，当 `previewUseEmoji` 为 `true` 时，用于指定 Emoji 风格。
+- `previewSetup`：一个可选的异步函数，类型为 `(service: TakumiService) => void | Promise<void>`，在预览渲染之前执行，可以在这里对渲染用到的 `TakumiService` 实例进行一些额外的配置，例如注册字体或预加载图像资源等。
 
 ## 加载图像
 
