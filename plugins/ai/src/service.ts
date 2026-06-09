@@ -7,10 +7,15 @@ export interface AiServiceOptions {
 }
 
 export class AiService {
+  private defaultModel: LanguageModel;
+
   constructor(private readonly options: AiServiceOptions) {
-    if (!options.models[options.defaultModel]) {
+    // find default model by name or alias
+    const defaultModel = options.models[options.defaultModel] ?? options.models[options.aliases[options.defaultModel]];
+    if (!defaultModel) {
       throw new Error(`Invalid default model "${options.defaultModel}": model does not exist.`);
     }
+    this.defaultModel = defaultModel;
 
     // Check aliases point to valid models
     for (const [alias, target] of Object.entries(options.aliases)) {
@@ -25,13 +30,16 @@ export class AiService {
   }
 
   model(name?: string): LanguageModel {
-    const modelByName = this.options.models[name ?? this.options.defaultModel];
+    if (!name) {
+      return this.defaultModel;
+    }
+    const modelByName = this.options.models[name];
     if (modelByName) {
       return modelByName;
     }
-    const aliasTarget = this.options.aliases[name ?? ''];
-    if (aliasTarget) {
-      return this.options.models[aliasTarget];
+    const modelByAlias = this.options.aliases[name];
+    if (modelByAlias) {
+      return this.options.models[modelByAlias];
     }
     throw new Error(`Model not found: ${name}`);
   }
