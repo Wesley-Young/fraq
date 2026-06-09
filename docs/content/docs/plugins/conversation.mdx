@@ -52,30 +52,26 @@ definePlugin({
 机器人: 北京今天晴，最高气温...
 ```
 
-传统的 `ctx.router.command` 遵循单纯的命令-响应模式，不适合处理多轮对话。但使用 `ctx.conversation.command`，我们可以轻松地实现这个功能。与前者不同，`ctx.conversation.command` 的 `execute` 方法接受第三个参数 `scope`，它包含一个函数 `open`，我们可以通过它来启动一个新的会话：
+传统的 `ctx.router.command` 遵循单纯的命令-响应模式，不适合处理多轮对话。但使用 `ctx.conversation.command`，我们可以轻松地实现这个功能。它的注册方式与 `ctx.router.command` 类似，同样可以通过 `.arg(...)` 声明参数；不同的是，`ctx.conversation.command(...).execute(...)` 的处理函数接受第三个参数 `scope`，它包含一个函数 `open`，我们可以通过它来启动一个新的会话：
 
 ```typescript
-ctx.conversation.command({
-  name: '天气',
-  pattern: {},
-  async execute(session, _, { open }) {
-    await session.reply(msg`你想查询哪个城市的天气呢？`);
+ctx.conversation.command('天气').execute(async (session, _, { open }) => {
+  await session.reply(msg`你想查询哪个城市的天气呢？`);
 
-    const city = await open<string>(({ router, done }) => {
-      router.rawPattern({
-        pattern: { city: param.str() },
-        async execute(_, { city }) {
-          done(city);
-        },
+  const city = await open<string>(({ router, done }) => {
+    router
+      .rawPattern()
+      .arg('city', param.str())
+      .execute(async (_, { city }) => {
+        done(city);
       });
-    }); // city: string | null
-    if (city === null) {
-      return;
-    }
+  }); // city: string | null
+  if (city === null) {
+    return;
+  }
 
-    const weatherInfo = await getWeatherForCity(city);
-    await session.reply(msg`${weatherInfo}`);
-  },
+  const weatherInfo = await getWeatherForCity(city);
+  await session.reply(msg`${weatherInfo}`);
 });
 ```
 

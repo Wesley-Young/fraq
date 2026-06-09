@@ -101,16 +101,13 @@ export const EchoPlugin = definePlugin({
   name: 'echo',
   apply(ctx) {
     ctx.logger.info('Echo plugin loaded');
-    ctx.router.command({
-      name: 'echo',
-      pattern: {
-        content: param.str(),
-      },
-      execute(session, { content }) {
+    ctx.router
+      .command('echo')
+      .arg('content', param.str())
+      .execute((session, { content }) => {
         ctx.logger.debug(`Received echo command: ${content}`);
         session.reply(msg`You said: ${content}`);
-      },
-    });
+      });
   },
 });
 ```

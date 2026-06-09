@@ -14,15 +14,12 @@ import { definePlugin } from '@fraqjs/fraq';
 export const EchoPlugin = definePlugin({
   name: 'echo',
   apply(ctx) {
-    ctx.router.command({
-      name: 'echo',
-      pattern: {
-        content: param.str(),
-      },
-      execute(session, { content }) {
+    ctx.router
+      .command('echo')
+      .arg('content', param.str())
+      .execute((session, { content }) => {
         session.reply(msg`You said: ${content}`);
-      },
-    });
+      });
   },
 });
 
@@ -59,17 +56,14 @@ definePlugin({
       prefixFaceId: number;
     },
   ) {
-    ctx.router.command({
-      name: 'echo',
-      pattern: {
-        content: param.str(),
-      },
-      execute(session, { content }) {
+    ctx.router
+      .command('echo')
+      .arg('content', param.str())
+      .execute((session, { content }) => {
         session.reply(
           msg`${seg.face(options.prefixFaceId)} You said: ${content}`,
         );
-      },
-    });
+      });
   },
 });
 ```

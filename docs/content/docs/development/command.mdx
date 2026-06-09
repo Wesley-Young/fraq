@@ -5,18 +5,15 @@ title: 定义指令
 在一开始的例子中，我们已经见过了一个简单的指令定义：
 
 ```typescript
-ctx.router.command({
-  name: 'echo',
-  pattern: {
-    content: param.str(),
-  },
-  execute(session, { content }) {
+ctx.router
+  .command('echo')
+  .arg('content', param.str())
+  .execute((session, { content }) => {
     // ...
-  },
-});
+  });
 ```
 
-这段代码包含了三个要素：指令叫什么、需要什么参数、以及收到这个指令时要执行什么操作。“快速开始” 一节已经对上述代码进行了简要的拆解，下面我们将更深入地介绍 Fraq 中的指令系统的设计与使用方法。
+这段代码包含了三个要素：指令叫什么、需要什么参数、以及收到这个指令时要执行什么操作。`command('echo')` 指定名称，后续的 `.arg(...)` 逐个声明参数，最后的 `.execute(...)` 注册处理函数。“快速开始” 一节已经对上述代码进行了简要的拆解，下面我们将更深入地介绍 Fraq 中的指令系统的设计与使用方法。
 
 ## 认识参数类型
 
@@ -33,21 +30,18 @@ Fraq 提供了多种参数类型来满足不同的需求：
 我们用一个例子来完整地展示一下这些参数是如何使用的：
 
 ```typescript
-ctx.router.command({
-  name: 'foo',
-  pattern: {
-    l: param.literal('hello'),
-    s: param.str(),
-    n: param.num(),
-    u: param.union('option1', 'option2', 'option3'),
-    seg: param.segment('mention'),
-    g: param.greedy(),
-    rest: param.catchAll(),
-  },
-  execute(session, { l, s, n, u, seg, g, rest }) {
+ctx.router
+  .command('foo')
+  .arg('l', param.literal('hello'))
+  .arg('s', param.str())
+  .arg('n', param.num())
+  .arg('u', param.union('option1', 'option2', 'option3'))
+  .arg('seg', param.segment('mention'))
+  .arg('g', param.greedy())
+  .arg('rest', param.catchAll())
+  .execute((session, { l, s, n, u, seg, g, rest }) => {
     // ...
-  },
-});
+  });
 ```
 
 满足上述指令的一个用户输入可以是：
@@ -92,19 +86,18 @@ param.str().describe('要回显的文本内容');
 ```typescript
 ctx.router
   .group('parent')
-  .command({
-    name: 'child1',
-    pattern: { arg1: param.str() },
-    execute(session, { arg1 }) {
-      // Handle child1 command
-    },
-  })
-  .command({
-    name: 'child2',
-    pattern: { arg2: param.num() },
-    execute(session, { arg2 }) {
-      // Handle child2 command
-    },
+  .command('child1')
+  .arg('arg1', param.str())
+  .execute((session, { arg1 }) => {
+    // Handle child1 command
+  });
+
+ctx.router
+  .group('parent')
+  .command('child2')
+  .arg('arg2', param.num())
+  .execute((session, { arg2 }) => {
+    // Handle child2 command
   });
 ```
 
@@ -115,29 +108,25 @@ ctx.router
 ```typescript
 const parentGroup = ctx.router.group('parent');
 parentGroup
-  .command({
-    name: 'child1',
-    pattern: { arg1: param.str() },
-    execute(session, { arg1 }) {
-      // Handle child1 command
-    },
-  })
-  .command({
-    name: 'child2',
-    pattern: { arg2: param.num() },
-    execute(session, { arg2 }) {
-      // Handle child2 command
-    },
+  .command('child1')
+  .arg('arg1', param.str())
+  .execute((session, { arg1 }) => {
+    // Handle child1 command
+  });
+parentGroup
+  .command('child2')
+  .arg('arg2', param.num())
+  .execute((session, { arg2 }) => {
+    // Handle child2 command
   });
 
 const subGroup = parentGroup.group('sub');
-subGroup.command({
-  name: 'child3',
-  pattern: { arg3: param.greedy() },
-  execute(session, { arg3 }) {
+subGroup
+  .command('child3')
+  .arg('arg3', param.greedy())
+  .execute((session, { arg3 }) => {
     // Handle child3 command
-  },
-});
+  });
 ```
 
 这个 router 可以接受以下的输入：
@@ -148,18 +137,16 @@ subGroup.command({
 
 ## 模式匹配
 
-`ctx.router` 提供了一个名为 `rawPattern` 的方法，它允许我们直接使用一个参数模式对象从头开始匹配用户输入，而不是定义指令名称和参数类型，通过检测用户输入是否符合这个模式来决定是否调用对应的处理函数。例如，如果我们需要用户先引用（回复）一条消息，再输入指令，我们可以定义如下的 Raw Pattern：
+`ctx.router` 提供了一个名为 `rawPattern` 的方法，它允许我们直接从用户输入开头匹配参数模式，而不是先匹配指令名称；router 会通过检测用户输入是否符合这个模式来决定是否调用对应的处理函数。例如，如果我们需要用户先引用（回复）一条消息，再输入指令，我们可以定义如下的 Raw Pattern：
 
 ```typescript
-ctx.router.rawPattern({
-  pattern: {
-    reply: param.segment('reply'),
-    content: param.greedy(),
-  },
-  execute(session, { reply, content }) {
+ctx.router
+  .rawPattern()
+  .arg('reply', param.segment('reply'))
+  .arg('content', param.greedy())
+  .execute((session, { reply, content }) => {
     // ...
-  },
-});
+  });
 ```
 
 这样就可以通过 `reply` 来拿到用户引用的消息段信息，通过 `content` 来拿到用户输入的剩余文本信息了。这比一般的指令定义更灵活，因为它不要求用户输入一个特定的指令名称，只要输入符合模式就可以了。
@@ -167,14 +154,12 @@ ctx.router.rawPattern({
 如果需要捕获完整的剩余消息内容，包括文本、提及、图片等消息段，可以使用 `param.catchAll()`：
 
 ```typescript
-ctx.router.rawPattern({
-  pattern: {
-    content: param.catchAll(),
-  },
-  execute(session, { content }) {
+ctx.router
+  .rawPattern()
+  .arg('content', param.catchAll())
+  .execute((session, { content }) => {
     // content: milky.IncomingSegment[]
-  },
-});
+  });
 ```
 
 `param.catchAll()` 会消费当前位置之后的所有剩余内容，因此它只能作为一个模式中的最后一个参数注册。
@@ -192,37 +177,30 @@ tp Steve Alex       // 将玩家 Steve 传送到玩家 Alex 的位置
 为了匹配上述不同的参数模式，我们可以创建一个名为 `tp` 的指令组，并在其中用 `rawPattern` 方法来定义不同的参数模式：
 
 ```typescript
-ctx.router
-  .group('tp')
-  .rawPattern({
-    pattern: {
-      x: param.num(),
-      y: param.num(),
-      z: param.num(),
-    },
-    execute(session, { x, y, z }) {
-      // Handle tp with coordinates only
-    },
-  })
-  .rawPattern({
-    pattern: {
-      player: param.str(),
-      x: param.num(),
-      y: param.num(),
-      z: param.num(),
-    },
-    execute(session, { player, x, y, z }) {
-      // Handle tp with player and coordinates
-    },
-  })
-  .rawPattern({
-    pattern: {
-      player1: param.str(),
-      player2: param.str(),
-    },
-    execute(session, { player1, player2 }) {
-      // Handle tp with player to player
-    },
+const tp = ctx.router.group('tp');
+
+tp.rawPattern()
+  .arg('x', param.num())
+  .arg('y', param.num())
+  .arg('z', param.num())
+  .execute((session, { x, y, z }) => {
+    // Handle tp with coordinates only
+  });
+
+tp.rawPattern()
+  .arg('player', param.str())
+  .arg('x', param.num())
+  .arg('y', param.num())
+  .arg('z', param.num())
+  .execute((session, { player, x, y, z }) => {
+    // Handle tp with player and coordinates
+  });
+
+tp.rawPattern()
+  .arg('player1', param.str())
+  .arg('player2', param.str())
+  .execute((session, { player1, player2 }) => {
+    // Handle tp with player to player
   });
 ```
 
@@ -231,19 +209,20 @@ ctx.router
 定义指令重载时需要格外小心，确保不同的参数模式之间没有歧义，否则可能会导致某些输入无法正确匹配到对应的处理函数。下面是一个引起歧义的案例：
 
 ```typescript
-ctx.router
-  .group('test')
-  .rawPattern({
-    pattern: { arg: param.str() },
-    execute(session, { arg }) {
-      // Handle test with string argument
-    },
-  })
-  .rawPattern({
-    pattern: { arg: param.num() },
-    execute(session, { arg }) {
-      // Handle test with number argument
-    },
+const test = ctx.router.group('test');
+
+test
+  .rawPattern()
+  .arg('arg', param.str())
+  .execute((session, { arg }) => {
+    // Handle test with string argument
+  });
+
+test
+  .rawPattern()
+  .arg('arg', param.num())
+  .execute((session, { arg }) => {
+    // Handle test with number argument
   });
 ```
 
@@ -272,13 +251,12 @@ const adminRouter = ctx.router.filter(
     session.raw.group_member.role !== 'member',
 );
 
-adminRouter.command({
-  name: 'admincmd',
-  pattern: { arg: param.str() },
-  execute(session, { arg }) {
+adminRouter
+  .command('admincmd')
+  .arg('arg', param.str())
+  .execute((session, { arg }) => {
     // This command can only be triggered by group owner and administrators
-  },
-});
+  });
 ```
 
 在上面的例子中，我们创建了一个新的 Router 实例 `adminRouter`，它只会在用户是群主或管理员时触发指令。我们在 `adminRouter` 上定义了一个指令 `admincmd`，只有满足过滤条件的输入才能触发这个指令。
