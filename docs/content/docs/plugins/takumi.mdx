@@ -6,6 +6,17 @@ title: '@fraqjs/plugin-takumi'
 
 `@fraqjs/plugin-takumi` 提供了基于 [Takumi](https://takumi.kane.tw/) 的图片渲染服务。
 
+{/* prettier-ignore */}
+<Callout type="warning">
+`@fraqjs/plugin-takumi` 依赖 `@takumi-rs/core` 包。Takumi 是一个 Rust 项目，只支持如下平台：
+
+- Windows x64/arm64
+- macOS x64/arm64
+- Linux x64/arm64
+
+</Callout>
+{/* prettier-ignore-end */}
+
 ## 安装与配置
 
 将插件添加至 `dependencies`，然后在创建 `Context` 时引入并配置插件：
