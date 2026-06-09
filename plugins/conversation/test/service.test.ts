@@ -17,32 +17,20 @@ test('open resolves when a later message matches its temporary router', async ()
   let resultPromise: Promise<'origin' | 'answer' | null> | undefined;
   let answerSeq: number | undefined;
 
-  conversation.command({
-    name: 'ask',
-    pattern: {},
-    execute(_session, _params, { open }) {
-      resultPromise = open<'origin' | 'answer'>(
-        ({ router, done }) => {
-          router.command({
-            name: 'ask',
-            pattern: {},
-            execute() {
-              done('origin');
-            },
-          });
-          router.command({
-            name: 'yes',
-            pattern: {},
-            async execute(answerSession) {
-              answerSeq = answerSession.raw.message_seq;
-              await answerSession.reply(msg`accepted`);
-              done('answer');
-            },
-          });
-        },
-        { timeout: 1000 },
-      );
-    },
+  conversation.command('ask').execute((_session, _params, { open }) => {
+    resultPromise = open<'origin' | 'answer'>(
+      ({ router, done }) => {
+        router.command('ask').execute(() => {
+          done('origin');
+        });
+        router.command('yes').execute(async (answerSession) => {
+          answerSeq = answerSession.raw.message_seq;
+          await answerSession.reply(msg`accepted`);
+          done('answer');
+        });
+      },
+      { timeout: 1000 },
+    );
   });
   await ctx.start();
   await client.receiveFriend({ userId: 1 }, inmsg`ask`);
@@ -63,6 +51,26 @@ test('open resolves when a later message matches its temporary router', async ()
       },
     },
   ]);
+});
+
+test('command builder captures command parameters', async () => {
+  const client = createMockMilkyClient();
+  const ctx = Context.fromClient(client);
+  const conversation = new ConversationService(ctx, { defaultTimeout: 1000 });
+  let captured: string | undefined;
+
+  conversation
+    .command('ask')
+    .arg('topic', param.str())
+    .execute((_session, { topic }) => {
+      captured = topic;
+    });
+
+  await ctx.start();
+  await client.receiveFriend({ userId: 1 }, inmsg`ask weather`);
+  await tick();
+
+  assert.equal(captured, 'weather');
 });
 
 test('open tracks active conversations independently by sender, scene, and peer', async () => {
@@ -176,12 +184,12 @@ test('active conversation handles a repeated triggering command without dispatch
       prompts += 1;
       await session.reply(msg`请输入城市`);
       resultPromise = open<string>(({ router, done }) => {
-        router.rawPattern({
-          pattern: { city: param.greedy() },
-          execute(_answerSession, { city }) {
+        router
+          .rawPattern()
+          .arg('city', param.greedy())
+          .execute((_answerSession, { city }) => {
             done(city);
-          },
-        });
+          });
       });
     },
   });

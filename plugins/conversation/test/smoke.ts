@@ -13,24 +13,20 @@ const WeatherPlugin = definePlugin({
     conversation: ConversationService,
   },
   apply(ctx) {
-    ctx.conversation.command({
-      name: '天气',
-      pattern: {},
-      async execute(session, _params, { open }) {
-        await session.reply(msg`你想查询哪个城市的天气呢？`);
-        const city = await open<string>(({ router, done }) => {
-          router.rawPattern({
-            pattern: { city: param.str() },
-            async execute(_, { city }) {
-              done(city);
-            },
+    ctx.conversation.command('天气').execute(async (session, _params, { open }) => {
+      await session.reply(msg`你想查询哪个城市的天气呢？`);
+      const city = await open<string>(({ router, done }) => {
+        router
+          .rawPattern()
+          .arg('city', param.str())
+          .execute(async (_, { city }) => {
+            done(city);
           });
-        });
-        if (city === null) {
-          return;
-        }
-        await session.reply(msg`没有找到${city}的天气信息呢...`); // just for mocking
-      },
+      });
+      if (city === null) {
+        return;
+      }
+      await session.reply(msg`没有找到${city}的天气信息呢...`); // just for mocking
     });
   },
 });

@@ -1,6 +1,7 @@
 import {
   type Context,
   type milky,
+  type Parameter,
   type ParamsOf,
   type Pattern,
   type RouteBranch,
@@ -23,10 +24,16 @@ export interface ConversationCommandScope {
   ): Promise<R | null>;
 }
 
+export type ConversationExecutor<P extends Pattern> = (
+  session: Session,
+  params: ParamsOf<P>,
+  scope: ConversationCommandScope,
+) => void | Promise<void>;
+
 export interface ConversationCommand<P extends Pattern> {
   name: string;
   pattern: P;
-  execute(session: Session, params: ParamsOf<P>, scope: ConversationCommandScope): void | Promise<void>;
+  execute: ConversationExecutor<P>;
 }
 
 export interface ConversationContext<R> {
@@ -38,6 +45,31 @@ export interface ConversationContext<R> {
 
 export interface ConversationOptions {
   timeout?: number;
+}
+
+type EmptyPattern = Record<never, never>;
+
+export class ConversationCommandBuilder<P extends Pattern = EmptyPattern> {
+  private readonly pattern: Pattern = {};
+
+  constructor(
+    readonly name: string,
+    private readonly sink: (command: ConversationCommand<P>) => void,
+  ) {}
+
+  arg<K extends string, T>(key: K, parameter: Parameter<T>) {
+    this.pattern[key] = parameter;
+    return this as ConversationCommandBuilder<P & { [K2 in K]: Parameter<T> }>;
+  }
+
+  execute(executor: ConversationExecutor<P>) {
+    const command: ConversationCommand<P> = {
+      name: this.name,
+      pattern: this.pattern as P,
+      execute: executor,
+    };
+    this.sink(command);
+  }
 }
 
 interface ActiveConversation<R> {
@@ -119,7 +151,15 @@ export class ConversationService {
     });
   }
 
-  command<P extends Pattern>(command: ConversationCommand<P>): this {
+  command(name: string): ConversationCommandBuilder;
+  command<P extends Pattern>(command: ConversationCommand<P>): this;
+  command<P extends Pattern>(command: string | ConversationCommand<P>): ConversationCommandBuilder | this {
+    if (typeof command === 'string') {
+      return new ConversationCommandBuilder(command, (builtCommand) => {
+        this.command(builtCommand);
+      });
+    }
+
     let branch: RouteBranch | undefined;
     const service = this;
     this.router.command({
