@@ -4,14 +4,16 @@ import type { LanguageModel } from 'ai';
 import { type ProviderConfig, resolveLanguageModels } from './provider';
 import { AiService } from './service';
 
+type LanguageModelInstance = Exclude<LanguageModel, string>;
+
 export interface AiPluginOptions {
-  providers: Record<string, ProviderConfig | Record<string, LanguageModel>>;
+  providers: Record<string, ProviderConfig | Record<string, LanguageModelInstance>>;
   aliases?: Record<string, string>;
   defaultModel?: string;
 }
 
-function isProviderConfig(config: ProviderConfig | Record<string, LanguageModel>): config is ProviderConfig {
-  return 'sdk' in config && 'options' in config && 'models' in config;
+function isProviderConfig(config: ProviderConfig | Record<string, LanguageModelInstance>): config is ProviderConfig {
+  return 'sdk' in config && typeof config.sdk === 'string';
 }
 
 export const AiPlugin = definePlugin({
