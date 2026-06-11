@@ -395,7 +395,31 @@ and implement the dispose method to clean up resources when the context stops.
     for (const installedPlugin of sortedPlugins) {
       const { plugin, args } = installedPlugin;
       const providedBeforeApply = new Set(this.services.keys());
-      this.logger.debug(`Applying plugin ${plugin.name}`);
+      let debugMessage = `Applying plugin ${plugin.name}`;
+      const requiredServices: string[] = [];
+      const providedServices: string[] = [];
+      if (plugin.requires) {
+        for (const service of plugin.requires) {
+          requiredServices.push(service.name);
+        }
+      }
+      if (plugin.optionalRequires) {
+        for (const service of plugin.optionalRequires) {
+          requiredServices.push(`${service.name}?`);
+        }
+      }
+      if (plugin.provides) {
+        for (const service of plugin.provides) {
+          providedServices.push(service.name);
+        }
+      }
+      if (requiredServices.length > 0) {
+        debugMessage += `, requires: [${requiredServices.join(', ')}]`;
+      }
+      if (providedServices.length > 0) {
+        debugMessage += `, provides: [${providedServices.join(', ')}]`;
+      }
+      this.logger.debug(debugMessage);
       await plugin.apply(this.getPluginContext(installedPlugin), ...args);
       for (const service of plugin.provides ?? []) {
         if (!this.services.has(service) || providedBeforeApply.has(service)) {
@@ -583,12 +607,6 @@ and implement the dispose method to clean up resources when the context stops.
     // Proxied logger with plugin name as prefix
     const proxyLogger = new Logger((message) => this.logHandler?.(message), plugin.name);
 
-    // Proxied provide method to log provided services
-    const proxyProvide = <T extends object>(service: ServiceClass<T>, instance: T): void => {
-      this.provide(service, instance);
-      this.logger.debug(`Plugin ${plugin.name} provided ${service.name}`);
-    };
-
     let proxyInjections: undefined | Record<string, object | undefined>;
     if (plugin.inject) {
       proxyInjections = {};
@@ -607,8 +625,6 @@ and implement the dispose method to clean up resources when the context stops.
       get(target, prop, receiver) {
         if (prop === 'logger') {
           return proxyLogger;
-        } else if (prop === 'provide') {
-          return proxyProvide;
         } else if (proxyInjections && prop in proxyInjections) {
           return proxyInjections[prop as keyof typeof proxyInjections];
         } else {
