@@ -11,6 +11,9 @@ export interface Command<P extends Pattern> {
   name: string;
   pattern: P;
   execute: Executor<P>;
+  description?: string;
+  aliases?: string[];
+  hidden?: boolean;
 }
 
 export interface RawPattern<P extends Pattern> {
@@ -26,6 +29,9 @@ export interface Session {
 export class CommandBuilder<P extends Pattern = {}, S = Command<P>> {
   private readonly pattern: Record<string, Parameter<any>> = {};
   private executor?: Executor<P>;
+  private description?: string;
+  private aliases?: string[];
+  private hidden?: boolean;
 
   constructor(
     readonly name: string,
@@ -44,6 +50,24 @@ export class CommandBuilder<P extends Pattern = {}, S = Command<P>> {
     >;
   }
 
+  describe(description: string) {
+    this.description = description;
+    return this as CommandBuilder<P, S>;
+  }
+
+  alias(...aliases: string[]) {
+    if (!this.aliases) {
+      this.aliases = [];
+    }
+    this.aliases.push(...aliases);
+    return this as CommandBuilder<P, S>;
+  }
+
+  hide() {
+    this.hidden = true;
+    return this as CommandBuilder<P, S>;
+  }
+
   execute(executor: Executor<P>): S {
     this.executor = executor;
     const command: Command<P> = {
@@ -51,6 +75,15 @@ export class CommandBuilder<P extends Pattern = {}, S = Command<P>> {
       pattern: this.pattern as P,
       execute: this.executor,
     };
+    if (this.description !== undefined) {
+      command.description = this.description;
+    }
+    if (this.aliases !== undefined) {
+      command.aliases = this.aliases;
+    }
+    if (this.hidden !== undefined) {
+      command.hidden = this.hidden;
+    }
     return this.sink(command);
   }
 }

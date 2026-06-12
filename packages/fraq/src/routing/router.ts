@@ -34,6 +34,7 @@ export class Router {
       });
     }
     this.validatePattern(command.pattern);
+    this.resolveAliasConflicts(command);
     // @ts-expect-error
     this.entries.push({ type: 'command', command });
     return this;
@@ -73,6 +74,15 @@ export class Router {
 
   routes(): RouteEntry[] {
     return this.entries;
+  }
+
+  aliasesOf(name: string): string[] {
+    for (const entry of this.entries) {
+      if (entry.type === 'command' && entry.command.name === name) {
+        return entry.command.aliases ? [...entry.command.aliases] : [];
+      }
+    }
+    return [];
   }
 
   branches(session: Session): RouteBranch[] {
@@ -139,7 +149,7 @@ export class Router {
 
   private matchCommand(command: Command<Pattern>, tokenizer: Tokenizer, path: string[]): RouteMatchResult | undefined {
     const token = tokenizer.peek();
-    if (typeof token !== 'string' || token !== command.name) {
+    if (typeof token !== 'string' || (token !== command.name && !(command.aliases?.includes(token)))) {
       return undefined;
     }
 
@@ -187,7 +197,9 @@ export class Router {
     for (const entry of this.entries) {
       switch (entry.type) {
         case 'command':
-          branches.push({ type: 'command', path: [...path], command: entry.command });
+          if (!entry.command.hidden) {
+            branches.push({ type: 'command', path: [...path], command: entry.command });
+          }
           break;
         case 'group':
           branches.push(...entry.router.branchesFrom(session, [...path, entry.name]));
@@ -204,6 +216,40 @@ export class Router {
     }
 
     return branches;
+  }
+
+  private resolveAliasConflicts<P extends Pattern>(command: Command<P>): void {
+    for (const entry of this.entries) {
+      if (entry.type !== 'command') continue;
+      const existing = entry.command;
+
+      if (existing.aliases?.includes(command.name)) {
+        existing.aliases = existing.aliases.filter((a) => a !== command.name);
+        console.warn(
+          `Command "${command.name}" conflicts with alias of existing command "${existing.name}". The alias "${command.name}" has been removed from "${existing.name}".`,
+        );
+      }
+
+      if (command.aliases) {
+        const dropped: string[] = [];
+        for (const alias of command.aliases) {
+          if (existing.name === alias) {
+            dropped.push(alias);
+            console.warn(
+              `Alias "${alias}" of command "${command.name}" conflicts with existing command name "${existing.name}". The alias has been dropped.`,
+            );
+          } else if (existing.aliases?.includes(alias)) {
+            existing.aliases = existing.aliases.filter((a) => a !== alias);
+            console.warn(
+              `Alias "${alias}" of command "${command.name}" conflicts with alias of existing command "${existing.name}". The alias has been removed from "${existing.name}".`,
+            );
+          }
+        }
+        if (dropped.length > 0) {
+          command.aliases = command.aliases.filter((a) => !dropped.includes(a));
+        }
+      }
+    }
   }
 
   private validatePattern(pattern: Pattern, options?: { rawPattern?: boolean }): void {
