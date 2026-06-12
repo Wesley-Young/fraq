@@ -233,6 +233,73 @@ test
 </Callout>
 {/* prettier-ignore-end */}
 
+## 指令元信息
+
+除了参数模式，指令还可以携带额外的元信息，帮助文档生成、指令查询等场景使用。
+
+### 描述信息
+
+可以使用 `.describe()` 方法为指令添加描述信息，这与参数的 `.describe()` 类似：
+
+```typescript
+ctx.router
+  .command('ping')
+  .describe('测试机器人是否在线')
+  .execute((session) => {
+    session.reply([inseg.text('pong')]);
+  });
+```
+
+### 指令别名
+
+可以使用 `.alias()` 方法为指令添加别名。当用户通过别名触发指令时，行为与使用原名完全相同：
+
+```typescript
+ctx.router
+  .command('help')
+  .alias('h', '帮助')
+  .execute((session) => {
+    // 用户输入 help、h 或 帮助 都会触发
+  });
+```
+
+别名不会在 Router 中创建额外的路由条目，而是在匹配时直接与指令名一起检查。匹配优先级为：
+
+1. 先按注册顺序匹配指令名和别名，第一个匹配成功即停止。
+2. 如果后续注册的指令名与之前指令的别名冲突，之前的别名会被移除并打印警告。
+3. 如果新指令的别名与已有指令名冲突，该别名会被丢弃并打印警告。
+4. 多条指令的别名冲突时，先注册的指令保留该别名。
+
+由于 [`group`](#指令组) 提供命名空间隔离，别名冲突检测仅在同一个 Router 层级内生效。例如，顶层指令 `block` 和 `group('admin')` 内别名也为 `block` 的指令是互不冲突的，它们分别对应输入 `block` 和 `admin block`。
+
+### 隐藏指令
+
+某些指令只作为内部工具使用，不希望在帮助列表中展示。可以使用 `.hide()` 标记：
+
+```typescript
+ctx.router
+  .command('internal')
+  .hide()
+  .execute((session) => {
+    // 此指令可以被 dispatch 触发，但不会出现在 branches() 返回的列表中
+  });
+```
+
+也可以通过 `hidden` 字段直接设置：
+
+```typescript
+ctx.router.command({
+  name: 'internal',
+  hidden: true,
+  pattern: {},
+  execute(session) {
+    // ...
+  },
+});
+```
+
+隐藏指令仍然可以被正常调度，`hidden` 仅影响 [`router.branches`](./digging/router.mdx#白盒函数) 列出的结果，不影响实际路由匹配。
+
 ## `Session` 对象
 
 `Session` 对象代表了一个会话。它包含以下字段：
