@@ -395,7 +395,7 @@ and implement the dispose method to clean up resources when the context stops.
     for (const installedPlugin of sortedPlugins) {
       const { plugin, args } = installedPlugin;
       const providedBeforeApply = new Set(this.services.keys());
-      let debugMessage = `Applying plugin ${plugin.name}`;
+      let applyingMessage = `Applying plugin ${plugin.name}`;
       const requiredServices: string[] = [];
       const providedServices: string[] = [];
       if (plugin.requires) {
@@ -414,12 +414,12 @@ and implement the dispose method to clean up resources when the context stops.
         }
       }
       if (requiredServices.length > 0) {
-        debugMessage += `, requires: [${requiredServices.join(', ')}]`;
+        applyingMessage += `, requires: [${requiredServices.join(', ')}]`;
       }
       if (providedServices.length > 0) {
-        debugMessage += `, provides: [${providedServices.join(', ')}]`;
+        applyingMessage += `, provides: [${providedServices.join(', ')}]`;
       }
-      this.logger.debug(debugMessage);
+      this.logger.info(applyingMessage);
       await plugin.apply(this.getPluginContext(installedPlugin), ...args);
       for (const service of plugin.provides ?? []) {
         if (!this.services.has(service) || providedBeforeApply.has(service)) {
